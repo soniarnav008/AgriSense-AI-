@@ -2838,20 +2838,20 @@ elif page == "Reports & History":
 
 
         # EXPORT REPORTS
-        st.subheader("📤 Export Your Reports")
-        st.caption("Download your saved data for future reference.")
-        st.divider()
+    st.subheader("📤 Export Your Reports")
+    st.caption("Download your saved data for future reference.")
+    st.divider()
 
-        report = make_markdown_report(records)
+    report = make_markdown_report(records)
 
-        st.download_button(
-            "Download history report (.md)",
-            report,
-            file_name="agrisense_report.md",
-            mime="text/markdown",
+    st.download_button(
+        "Download history report (.md)",
+        report,
+        file_name="agrisense_report.md",
+        mime="text/markdown",
         )
 
-        st.download_button(
+    st.download_button(
             "Download raw records (.json)",
             json.dumps(
                 records,
@@ -2865,7 +2865,7 @@ elif page == "Reports & History":
 
         # CLEAR HISTORY
 
-        if st.button(
+    if st.button(
             "Delete all saved history",
             type="secondary"
         ):
