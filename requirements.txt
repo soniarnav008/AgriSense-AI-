@@ -1,0 +1,6 @@
+streamlit>=1.39
+openai>=1.50
+python-dotenv>=1.0
+Pillow>=10.0
+numpy>=1.26
+tensorflow>=2.16
