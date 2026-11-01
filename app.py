@@ -2879,173 +2879,202 @@ elif page == "Reports & History":
             st.rerun()
 
 
+
 # ==================================================
 # EDGE AI LAB
 # ==================================================
 
 elif page == "Edge AI Lab":
 
-    
+    import platform
+
     st.html("""
     <div style="
-        background:linear-gradient(120deg,#102b3a,#142331,#10202b);
+        background:radial-gradient(circle at 90% 10%,#17465a 0%,transparent 40%),
+        linear-gradient(120deg,#102b3a,#142331,#10202b);
         border:1px solid #245064;
         border-radius:18px;
-        padding:28px;
+        padding:30px;
         margin-bottom:22px;
     ">
-        <div style="color:#19d9f5;font-size:14px;font-weight:700;
+        <div style="color:#19d9f5;font-size:13px;font-weight:800;
                     letter-spacing:2px;">
             AGRISENSE AI · TECHNOLOGY CENTER
         </div>
-        <div style="font-size:36px;font-weight:800;color:#ffffff;
-                    margin-top:10px;">
+        <div style="font-size:36px;font-weight:850;color:white;
+                    margin-top:14px;">
             ⚙️ Edge AI Lab
         </div>
-        <div style="font-size:18px;color:#b8cbd7;margin-top:10px;
-                    line-height:1.7;">
-            Explore the technology powering AgriSense AI,
-            from local plant disease classification to intelligent
-            agricultural assistance.
+        <div style="font-size:16px;color:#b8cbd7;margin-top:12px;
+                    line-height:1.8;">
+            Explore the machine learning architecture, inference
+            pipeline and technologies powering AgriSense AI.
         </div>
-        <div style="font-size:15px;color:#19d9f5;margin-top:18px;">
+        <div style="color:#19d9f5;font-size:13px;margin-top:18px;">
             MOBILENETV2 · TENSORFLOW · GEMINI AI · SQLITE
         </div>
     </div>
     """)
 
-    st.subheader("🧠 Model Performance & Configuration")
-
+    # MODEL STATUS
 
     status = model_status()
 
-    c1, c2 = st.columns(2)
+    st.subheader("🧠 AI Model Status")
+
+    c1, c2, c3 = st.columns(3)
 
     c1.metric(
-        "Local Image Model",
-        "Ready" if status["ready"] else "Missing"
+        "Model Status",
+        "Ready" if status["ready"] else "Offline"
     )
 
     c2.metric(
-        "Model File Size",
+        "Model Size",
         f'{status["size_mb"]:.2f} MB'
         if status["ready"] else "—"
     )
 
-    st.divider()
+    c3.metric("Classification Classes", "15")
 
-    
-    st.subheader("🧠 Model Configuration")
+    if status["ready"]:
+        st.success("Plant disease classification model is loaded and available.")
+    else:
+        st.error("Plant disease model or labels are missing.")
+
+    st.markdown("---")
+
+    # MODEL SPECIFICATIONS
+
+    st.subheader("🔬 Model Specifications")
 
     c1, c2 = st.columns(2)
 
     with c1:
         with st.container(border=True):
-            st.markdown("### ⚡ Model Architecture")
-            st.markdown("**MobileNetV2**")
-            st.caption("Deep learning image classification")
+            st.markdown("### ⚡ Architecture")
+            st.title("MobileNetV2")
+            st.caption("Lightweight convolutional neural network")
 
     with c2:
         with st.container(border=True):
-            st.markdown("### 🖼️ Input Dimensions")
-            st.markdown("**RGB · 160 × 160 px**")
-            st.caption("Standardized image preprocessing")
+            st.markdown("### 🖼️ Input Resolution")
+            st.title("160 × 160")
+            st.caption("RGB image input")
 
     c3, c4 = st.columns(2)
 
     with c3:
         with st.container(border=True):
-            st.markdown("### 🌿 Supported Classes")
-            st.markdown("**15 Classes**")
+            st.markdown("### 🌿 Supported Crops")
+            st.title("3 Crops")
             st.caption("Tomato · Potato · Pepper")
 
     with c4:
         with st.container(border=True):
-            st.markdown("### 💻 Inference Engine")
-            st.markdown("**Local Device**")
-            st.caption("CPU / GPU as supported")
+            st.markdown("### 🧮 Classification")
+            st.title("15 Classes")
+            st.caption("Plant health and disease categories")
 
-    st.markdown("### 🧠 AI Model Information")
+    st.markdown("---")
 
-    with st.container(border=True):
-        c1, c2 = st.columns(2)
+    # INFERENCE PIPELINE
 
-        with c1:
-            st.markdown("**Architecture**")
-            st.markdown("MobileNetV2")
-            st.markdown("**Input Resolution**")
-            st.markdown("160 × 160 pixels")
-            st.markdown("**Processing**")
-            st.markdown("On-device")
+    st.subheader("🔄 Image Inference Pipeline")
 
-        with c2:
-            st.markdown("**Classification**")
-            st.markdown("15 Classes")
-            st.markdown("**Supported Crops**")
-            st.markdown("Tomato · Potato · Pepper")
-            st.markdown("**Model Status**")
-            st.markdown("🟢 Ready" if status["ready"] else "🔴 Missing")
+    pipeline = [
+        ("01", "Image Upload", "User uploads a plant leaf image."),
+        ("02", "Preprocessing", "Image converted to RGB and resized to 160 × 160."),
+        ("03", "Normalization", "MobileNetV2 preprocessing is applied."),
+        ("04", "Model Inference", "TensorFlow model generates class scores."),
+        ("05", "Prediction", "Top predictions and confidence are extracted."),
+        ("06", "Result Display", "Predicted condition and guidance are displayed.")
+    ]
 
-    if status["ready"]:
-        st.success("15-class model and labels found.")
-    else:
-        st.error("Model weights or labels are missing.")
+    for number, title, description in pipeline:
 
-    st.divider()
+        with st.container(border=True):
+            c1, c2 = st.columns([1, 8])
+
+            with c1:
+                st.markdown(f"### `{number}`")
+
+            with c2:
+                st.markdown(f"**{title}**")
+                st.caption(description)
+
+    st.markdown("---")
 
     # SYSTEM ARCHITECTURE
 
-    st.markdown("---")
-    st.subheader("🏗️ System Architecture")
-    st.caption("Four integrated components powering the platform.")
+    st.subheader("🏗️ Platform Architecture")
 
-    architecture = [
-        ("🌿", "Plant Disease Detection", "MobileNetV2 based image classification."),
-        ("💬", "Farmer Assistant", "Gemini-powered agricultural guidance."),
-        ("📊", "Farm Monitoring", "Rule-based analysis of farm conditions."),
-        ("💾", "Data Management", "SQLite storage and report generation.")
+    components = [
+        ("🌿", "Plant Doctor", "MobileNetV2 + TensorFlow"),
+        ("💬", "Farmer Assistant", "Gemini API"),
+        ("📊", "Farm Monitoring", "Rule-based screening"),
+        ("💾", "Data Management", "SQLite database"),
+        ("📄", "Reports & History", "Assessment retrieval and JSON export"),
+        ("📡", "Future IoT", "ESP32 + environmental sensors (planned)")
     ]
 
     cols = st.columns(2)
 
-    for i, (emoji, title, description) in enumerate(architecture):
+    for i, (emoji, title, description) in enumerate(components):
+
         with cols[i % 2]:
             with st.container(border=True):
                 st.markdown(f"## {emoji}")
                 st.markdown(f"**{title}**")
                 st.caption(description)
 
-    st.divider()
+    st.markdown("---")
 
     # MODEL EVALUATION
 
-    st.markdown("---")
     st.subheader("📈 Model Evaluation")
-    st.caption("Validation performance of the plant disease classifier.")
 
-    st.metric(
-        "Validation Accuracy",
-        "92.17%"
-    )
+    st.metric("Validation Accuracy", "92.17%")
 
     st.caption(
-        "Measured on the held-out PlantVillage validation split. "
-        "This is not a guarantee of real-world field accuracy."
+        "Reported validation accuracy on the held-out PlantVillage "
+        "validation split. Real-world field accuracy may differ."
     )
 
-    st.write(
-        "**Important:** Model confidence is not the same as "
-        "diagnostic accuracy. Real-world images may produce "
-        "incorrect predictions."
+    st.warning(
+        "Model confidence is not equivalent to diagnostic accuracy. "
+        "Lighting, image quality and real-world conditions can affect predictions."
     )
 
-    st.divider()
+    st.markdown("---")
+
+    # RUNTIME ENVIRONMENT
+
+    st.subheader("💻 Runtime Environment")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown("**Operating Environment**")
+        st.code(platform.system())
+
+        st.markdown("**Python Version**")
+        st.code(platform.python_version())
+
+    with c2:
+        st.markdown("**Inference Framework**")
+        st.code("TensorFlow / Keras")
+
+        st.markdown("**Web Framework**")
+        st.code("Streamlit")
+
+    st.markdown("---")
 
     # LAST INFERENCE
 
-    st.subheader("Last Measured Inference")
+    st.subheader("⚡ Last Measured Inference")
 
-    latest = st.session_state.latest_assessment
+    latest = st.session_state.get("latest_assessment", {})
 
     if (
         latest.get("type") == "plant_image"
@@ -3058,7 +3087,35 @@ elif page == "Edge AI Lab":
         )
 
     else:
-
-        st.caption(
-            "No image inference has been recorded in this session."
+        st.info(
+            "No image inference has been recorded in this session. "
+            "Run Plant Doctor to measure inference latency."
         )
+
+    st.markdown("---")
+
+    # TECHNICAL LIMITATIONS
+
+    st.subheader("🔍 Technical Considerations")
+
+    with st.expander("Model limitations and future improvements"):
+
+        st.markdown("""
+        **Current capabilities**
+        - Local plant image classification.
+        - AI-powered agricultural question answering.
+        - Rule-based farm condition screening.
+        - Database-backed assessment history.
+
+        **Current limitations**
+        - Classification is limited to 15 trained classes.
+        - Real-world image performance can differ from validation performance.
+        - Farm readings are manually entered, not sensor-generated.
+        - IoT hardware integration is planned, not currently active.
+
+        **Future development**
+        - ESP32-based live sensor integration.
+        - Improved real-world plant image generalization.
+        - Persistent historical analytics.
+        - Advanced crop-specific recommendation systems.
+        """)
