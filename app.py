@@ -1981,13 +1981,23 @@ elif page == "Farmer Assistant":
         st.rerun()
 
 
+
 # ==================================================
 # FARM MONITORING
 # ==================================================
 
 elif page == "Farm Monitoring":
 
-    
+    import pandas as pd
+    from datetime import datetime
+
+    # Initialize session history
+    if "monitoring_history" not in st.session_state:
+        st.session_state.monitoring_history = []
+
+    if "last_farm_result" not in st.session_state:
+        st.session_state.last_farm_result = None
+
     st.html("""
     <div style="
         background:linear-gradient(120deg,#102b3a,#142331,#10202b);
@@ -2015,38 +2025,35 @@ elif page == "Farm Monitoring":
     </div>
     """)
 
-    st.subheader("🌱 Enter Farm Conditions")
-    st.caption(
-        "Enter your field readings below to generate a screening report."
-    )
+    st.info("📡 Current Mode: Manual input / simulated readings. No physical IoT sensors are connected.")
 
+    # --------------------------------------------------
+    # INPUT FORM
+    # --------------------------------------------------
+
+    st.subheader("🌱 Enter Farm Conditions")
 
     with st.form("farm_form"):
 
         a, b = st.columns(2)
 
         with a:
-
             crop = st.selectbox(
                 "Crop",
                 ["Wheat", "Rice", "Tomato", "Potato", "Maize", "Other"],
             )
 
             moisture = st.slider(
-                "Soil moisture (%)",
-                0, 100, 25
+                "Soil moisture (%)", 0, 100, 25
             )
 
             temperature = st.slider(
-                "Temperature (°C)",
-                -5, 55, 30
+                "Temperature (°C)", -5, 55, 30
             )
 
         with b:
-
             humidity = st.slider(
-                "Relative humidity (%)",
-                0, 100, 55
+                "Relative humidity (%)", 0, 100, 55
             )
 
             rainfall = st.number_input(
@@ -2060,15 +2067,17 @@ elif page == "Farm Monitoring":
             notes = st.text_input("Optional field notes")
 
         submitted = st.form_submit_button(
-    "🔍 Analyze Farm Conditions",
-    type="primary",
-    use_container_width=True
-)
+            "🔍 Analyze Farm Conditions",
+            type="primary",
+            use_container_width=True
+        )
+
+    # --------------------------------------------------
+    # ANALYSIS AND HISTORY STORAGE
+    # --------------------------------------------------
 
     if submitted:
-
         try:
-
             result = assess_conditions(
                 crop,
                 moisture,
@@ -2086,16 +2095,63 @@ elif page == "Farm Monitoring":
                 "alerts": result["alerts"],
             }
 
-        except Exception as error:
+            # Save reading in session history
+            st.session_state.monitoring_history.append({
+                "Time": datetime.now().strftime("%H:%M:%S"),
+                "Crop": crop,
+                "Temperature": temperature,
+                "Humidity": humidity,
+                "Soil Moisture": moisture,
+                "Rainfall": rainfall,
+            })
 
+            st.success("Farm conditions analyzed successfully!")
+
+        except Exception as error:
             st.error(f"Unable to assess farm conditions: {error}")
 
     result = st.session_state.last_farm_result
 
+    # --------------------------------------------------
+    # INTERACTIVE MONITORING DASHBOARD
+    # --------------------------------------------------
+
     if result:
 
+        inputs = result["inputs"]
+
         st.markdown("---")
-        st.subheader("📈 Farm Health Screening Report")
+        st.subheader("📊 Live Monitoring Dashboard")
+        st.caption("Latest submitted farm readings")
+
+        c1, c2, c3 = st.columns(3)
+
+        with c1:
+            st.metric(
+                "🌡️ Temperature",
+                f'{inputs["temperature_c"]} °C'
+            )
+
+        with c2:
+            st.metric(
+                "💧 Humidity",
+                f'{inputs["relative_humidity_percent"]}%'
+            )
+
+        with c3:
+            st.metric(
+                "🌱 Soil Moisture",
+                f'{inputs["soil_moisture_percent"]}%'
+            )
+
+        st.caption(f'Crop: {inputs["crop"]}')
+
+        # --------------------------------------------------
+        # SMART RECOMMENDATIONS
+        # --------------------------------------------------
+
+        st.markdown("---")
+        st.subheader("🧠 Smart Recommendations")
 
         if result.get("alerts"):
 
@@ -2115,26 +2171,116 @@ elif page == "Farm Monitoring":
                     st.info(message)
 
         else:
-
-            st.info(
+            st.success(
                 "No rule-based alerts were triggered for these inputs. "
                 "This does not guarantee the crop is healthy."
             )
 
         st.caption(
-            "Rules are preliminary screening heuristics, not crop-specific "
-            "agronomic recommendations."
+            "These are preliminary screening heuristics, not "
+            "crop-specific agronomic recommendations."
         )
 
-        if st.button("Save monitoring assessment"):
+        # --------------------------------------------------
+        # HISTORICAL CHARTS
+        # --------------------------------------------------
+
+        st.markdown("---")
+        st.subheader("📈 Historical Monitoring Charts")
+
+        history = st.session_state.monitoring_history
+
+        if len(history) >= 2:
+
+            df = pd.DataFrame(history)
+
+            st.caption(
+                "Session history: manually submitted readings only."
+            )
+
+            st.markdown("**Temperature Trend (°C)**")
+            st.line_chart(
+                df.set_index("Time")[["Temperature"]]
+            )
+
+            st.markdown("**Humidity Trend (%)**")
+            st.line_chart(
+                df.set_index("Time")[["Humidity"]]
+            )
+
+            st.markdown("**Soil Moisture Trend (%)**")
+            st.line_chart(
+                df.set_index("Time")[["Soil Moisture"]]
+            )
+
+        else:
+            st.info(
+                "Submit at least two farm assessments to generate "
+                "historical charts."
+            )
+
+        # --------------------------------------------------
+        # SAVE ASSESSMENT
+        # --------------------------------------------------
+
+        if st.button("💾 Save Monitoring Assessment"):
 
             save_record(
                 "farm_conditions",
-                result["inputs"]["crop"],
+                inputs["crop"],
                 result,
             )
 
-            st.success("Monitoring assessment saved.")
+            st.success("Monitoring assessment saved successfully!")
+
+    # --------------------------------------------------
+    # FUTURE IOT INTEGRATION
+    # --------------------------------------------------
+
+    st.markdown("---")
+    st.subheader("📡 Future IoT Integration")
+
+    st.caption(
+        "Planned architecture — hardware integration is not currently active."
+    )
+
+    with st.expander("Explore the proposed IoT architecture"):
+
+        st.markdown("""
+        **Proposed hardware components**
+
+        - ESP32 microcontroller — processes and transmits sensor readings.
+        - DHT22 sensor — measures temperature and humidity.
+        - Capacitive soil moisture sensor — measures soil moisture.
+
+        **Data flow**
+
+        1. Sensors collect environmental readings.
+        2. ESP32 reads and processes sensor data.
+        3. Data is transmitted through Wi-Fi using HTTP or MQTT.
+        4. AgriSense AI receives the readings.
+        5. The monitoring dashboard displays updated values.
+        6. Rule-based screening identifies potential risks.
+        """)
+
+        st.code(
+            "DHT22 + Soil Moisture Sensor\n"
+            "          ↓\n"
+            "        ESP32\n"
+            "          ↓\n"
+            "      Wi-Fi / MQTT\n"
+            "          ↓\n"
+            "   AgriSense AI Backend\n"
+            "          ↓\n"
+            " Monitoring Dashboard + Alerts",
+            language="text"
+        )
+
+        st.info(
+            "This is a proposed future extension. The current application "
+            "uses manual inputs and does not receive live sensor data."
+        )
+
 
 
 # ==================================================
