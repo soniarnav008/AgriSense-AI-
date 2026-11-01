@@ -2380,7 +2380,8 @@ elif page == "Farm Monitoring":
 
 elif page == "Reports & History":
 
-    
+    import json
+
     st.html("""
     <div style="
         background:linear-gradient(120deg,#102b3a,#142331,#10202b);
@@ -2399,28 +2400,91 @@ elif page == "Reports & History":
         </div>
         <div style="font-size:18px;color:#b8cbd7;margin-top:10px;
                     line-height:1.7;">
-            Access your previous plant diagnoses, farm assessments
-            and downloadable agricultural reports.
+            Review previous plant diagnoses, farm assessments
+            and export your agricultural reports.
         </div>
         <div style="font-size:15px;color:#19d9f5;margin-top:18px;">
-            SAVED RECORDS · REPORT EXPORT · ASSESSMENT HISTORY
+            SAVED RECORDS · ANALYTICS · REPORT EXPORT
         </div>
     </div>
     """)
 
-    st.subheader("📁 Saved Assessment Records")
-    st.caption("Review and export your previous assessments.")
-
-
     records = get_records()
+
+    # --------------------------------------------------
+    # STATISTICS
+    # --------------------------------------------------
+
+    plant_records = [
+        r for r in records
+        if r["record_type"] == "plant_image"
+    ]
+
+    farm_records = [
+        r for r in records
+        if r["record_type"] == "farm_conditions"
+    ]
+
+    st.subheader("📊 Assessment Overview")
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Total Assessments", len(records))
+    c2.metric("Plant Diagnoses", len(plant_records))
+    c3.metric("Farm Assessments", len(farm_records))
+
+    st.markdown("---")
+
+    # --------------------------------------------------
+    # DOWNLOAD REPORT
+    # --------------------------------------------------
+
+    st.subheader("📥 Export Reports")
+
+    if records:
+
+        report_data = {
+            "application": "AgriSense AI",
+            "report_type": "Assessment History",
+            "total_assessments": len(records),
+            "plant_diagnoses": len(plant_records),
+            "farm_assessments": len(farm_records),
+            "records": records
+        }
+
+        st.download_button(
+            "⬇️ Download Complete Assessment Report (JSON)",
+            data=json.dumps(
+                report_data,
+                indent=4,
+                default=str
+            ),
+            file_name="AgriSense_Assessment_Report.json",
+            mime="application/json",
+            use_container_width=True
+        )
+
+    else:
+        st.info("Complete and save an assessment to enable report export.")
+
+    st.markdown("---")
+
+    # --------------------------------------------------
+    # ASSESSMENT HISTORY
+    # --------------------------------------------------
+
+    st.subheader("📁 Saved Assessment Records")
 
     if not records:
 
         st.info(
-    "📂 No records available yet. Complete and save a Plant Doctor "
-    "or Farm Monitoring assessment to see your history here."
-)
+            "No records available yet. Complete and save a Plant Doctor "
+            "or Farm Monitoring assessment to see your history here."
+        )
+
     else:
+
+        st.caption(f"{len(records)} saved assessment(s) available.")
 
         for index, record in enumerate(records):
 
@@ -2431,16 +2495,15 @@ elif page == "Reports & History":
 
                 payload = record["payload"]
 
+                # PLANT DISEASE RECORDS
+
                 if record["record_type"] == "plant_image":
 
                     st.markdown("### 🌿 Plant Disease Assessment")
 
                     c1, c2, c3 = st.columns(3)
 
-                    c1.metric(
-                        "Crop",
-                        record["crop"]
-                    )
+                    c1.metric("Crop", record["crop"])
 
                     c2.metric(
                         "Predicted Condition",
@@ -2460,7 +2523,6 @@ elif page == "Reports & History":
                     latency = payload.get("latency_ms")
 
                     if latency is not None:
-
                         st.caption(
                             f"Inference time: {latency:.1f} ms"
                         )
@@ -2468,17 +2530,38 @@ elif page == "Reports & History":
                     with st.expander("View detailed assessment data"):
                         st.json(payload)
 
+                # FARM MONITORING RECORDS
+
                 elif record["record_type"] == "farm_conditions":
 
                     st.markdown("### 📊 Farm Condition Assessment")
 
                     inputs = payload.get("inputs", {})
 
+                    c1, c2, c3 = st.columns(3)
+
+                    c1.metric(
+                        "Temperature",
+                        f'{inputs.get("temperature_c", 0)} °C'
+                    )
+
+                    c2.metric(
+                        "Humidity",
+                        f'{inputs.get("relative_humidity_percent", 0)}%'
+                    )
+
+                    c3.metric(
+                        "Soil Moisture",
+                        f'{inputs.get("soil_moisture_percent", 0)}%'
+                    )
+
                     st.write(
                         f'**Crop:** {inputs.get("crop", "Unknown")}'
                     )
 
-                    st.json(inputs)
+                    st.write(
+                        f'**Rainfall:** {inputs.get("recent_rainfall_mm", 0)} mm'
+                    )
 
                     alerts = payload.get("alerts", [])
 
@@ -2488,21 +2571,271 @@ elif page == "Reports & History":
 
                         for alert in alerts:
 
-                            st.write(
+                            message = (
                                 f'**{alert.get("level", "Info")}:** '
                                 f'{alert.get("title", "")} — '
                                 f'{alert.get("detail", "")}'
                             )
 
-                    else:
+                            if alert.get("level") == "High":
+                                st.error(message)
 
+                            elif alert.get("level") == "Moderate":
+                                st.warning(message)
+
+                            else:
+                                st.info(message)
+
+                    else:
                         st.success(
                             "No rule-based alerts were triggered."
                         )
 
-                else:
+                    with st.expander("View complete farm data"):
+                        st.json(payload)
 
+                else:
                     st.json(payload)
+
+    st.markdown("---")
+
+    st.caption(
+        "AgriSense AI · Assessment records are retrieved from the "
+        "application database. Exported JSON files contain saved "
+        "assessment data."
+    )
+
+# ==================================================
+# REPORTS & HISTORY
+# ==================================================
+
+elif page == "Reports & History":
+
+    import json
+
+    st.html("""
+    <div style="
+        background:linear-gradient(120deg,#102b3a,#142331,#10202b);
+        border:1px solid #245064;
+        border-radius:18px;
+        padding:28px;
+        margin-bottom:22px;
+    ">
+        <div style="color:#19d9f5;font-size:14px;font-weight:700;
+                    letter-spacing:2px;">
+            AGRISENSE AI · DATA CENTER
+        </div>
+        <div style="font-size:36px;font-weight:800;color:#ffffff;
+                    margin-top:10px;">
+            📚 Reports & History
+        </div>
+        <div style="font-size:18px;color:#b8cbd7;margin-top:10px;
+                    line-height:1.7;">
+            Review previous plant diagnoses, farm assessments
+            and export your agricultural reports.
+        </div>
+        <div style="font-size:15px;color:#19d9f5;margin-top:18px;">
+            SAVED RECORDS · ANALYTICS · REPORT EXPORT
+        </div>
+    </div>
+    """)
+
+    records = get_records()
+
+    # --------------------------------------------------
+    # STATISTICS
+    # --------------------------------------------------
+
+    plant_records = [
+        r for r in records
+        if r["record_type"] == "plant_image"
+    ]
+
+    farm_records = [
+        r for r in records
+        if r["record_type"] == "farm_conditions"
+    ]
+
+    st.subheader("📊 Assessment Overview")
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("Total Assessments", len(records))
+    c2.metric("Plant Diagnoses", len(plant_records))
+    c3.metric("Farm Assessments", len(farm_records))
+
+    st.markdown("---")
+
+    # --------------------------------------------------
+    # DOWNLOAD REPORT
+    # --------------------------------------------------
+
+    st.subheader("📥 Export Reports")
+
+    if records:
+
+        report_data = {
+            "application": "AgriSense AI",
+            "report_type": "Assessment History",
+            "total_assessments": len(records),
+            "plant_diagnoses": len(plant_records),
+            "farm_assessments": len(farm_records),
+            "records": records
+        }
+
+        st.download_button(
+            "⬇️ Download Complete Assessment Report (JSON)",
+            data=json.dumps(
+                report_data,
+                indent=4,
+                default=str
+            ),
+            file_name="AgriSense_Assessment_Report.json",
+            mime="application/json",
+            use_container_width=True
+        )
+
+    else:
+        st.info("Complete and save an assessment to enable report export.")
+
+    st.markdown("---")
+
+    # --------------------------------------------------
+    # ASSESSMENT HISTORY
+    # --------------------------------------------------
+
+    st.subheader("📁 Saved Assessment Records")
+
+    if not records:
+
+        st.info(
+            "No records available yet. Complete and save a Plant Doctor "
+            "or Farm Monitoring assessment to see your history here."
+        )
+
+    else:
+
+        st.caption(f"{len(records)} saved assessment(s) available.")
+
+        for index, record in enumerate(records):
+
+            with st.expander(
+                f'{record["created_at"]} · '
+                f'{record["record_type"]} · {record["crop"]}'
+            ):
+
+                payload = record["payload"]
+
+                # PLANT DISEASE RECORDS
+
+                if record["record_type"] == "plant_image":
+
+                    st.markdown("### 🌿 Plant Disease Assessment")
+
+                    c1, c2, c3 = st.columns(3)
+
+                    c1.metric("Crop", record["crop"])
+
+                    c2.metric(
+                        "Predicted Condition",
+                        payload.get("display_label", "Unknown")
+                    )
+
+                    c3.metric(
+                        "Prediction Score",
+                        f'{payload.get("confidence", 0):.2%}'
+                    )
+
+                    st.caption(
+                        f'Uploaded image: '
+                        f'{payload.get("image_name", "Not recorded")}'
+                    )
+
+                    latency = payload.get("latency_ms")
+
+                    if latency is not None:
+                        st.caption(
+                            f"Inference time: {latency:.1f} ms"
+                        )
+
+                    with st.expander("View detailed assessment data"):
+                        st.json(payload)
+
+                # FARM MONITORING RECORDS
+
+                elif record["record_type"] == "farm_conditions":
+
+                    st.markdown("### 📊 Farm Condition Assessment")
+
+                    inputs = payload.get("inputs", {})
+
+                    c1, c2, c3 = st.columns(3)
+
+                    c1.metric(
+                        "Temperature",
+                        f'{inputs.get("temperature_c", 0)} °C'
+                    )
+
+                    c2.metric(
+                        "Humidity",
+                        f'{inputs.get("relative_humidity_percent", 0)}%'
+                    )
+
+                    c3.metric(
+                        "Soil Moisture",
+                        f'{inputs.get("soil_moisture_percent", 0)}%'
+                    )
+
+                    st.write(
+                        f'**Crop:** {inputs.get("crop", "Unknown")}'
+                    )
+
+                    st.write(
+                        f'**Rainfall:** {inputs.get("recent_rainfall_mm", 0)} mm'
+                    )
+
+                    alerts = payload.get("alerts", [])
+
+                    if alerts:
+
+                        st.markdown("**Screening Alerts**")
+
+                        for alert in alerts:
+
+                            message = (
+                                f'**{alert.get("level", "Info")}:** '
+                                f'{alert.get("title", "")} — '
+                                f'{alert.get("detail", "")}'
+                            )
+
+                            if alert.get("level") == "High":
+                                st.error(message)
+
+                            elif alert.get("level") == "Moderate":
+                                st.warning(message)
+
+                            else:
+                                st.info(message)
+
+                    else:
+                        st.success(
+                            "No rule-based alerts were triggered."
+                        )
+
+                    with st.expander("View complete farm data"):
+                        st.json(payload)
+
+                else:
+                    st.json(payload)
+
+    st.markdown("---")
+
+    st.caption(
+        "AgriSense AI · Assessment records are retrieved from the "
+        "application database. Exported JSON files contain saved "
+        "assessment data."
+    )
+
 
         # EXPORT REPORTS
         st.subheader("📤 Export Your Reports")
