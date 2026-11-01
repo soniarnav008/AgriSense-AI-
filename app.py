@@ -1213,6 +1213,7 @@ with st.sidebar:
 
 
 
+
 # ==================================================
 # DASHBOARD
 # ==================================================
@@ -1223,167 +1224,190 @@ if page == "Dashboard":
     records = get_records()
     api_ready = bool(os.getenv("GEMINI_API_KEY"))
 
-    # HERO SECTION
-
-    st.html("""
-    <div class="hero-panel">
-
-        <div class="hero-label">
-            SMART AGRICULTURE · EDGE AI
-        </div>
-
-        <div class="hero-title">
-            Grow smarter.
-        </div>
-
-        <div class="hero-subtitle">
-            Think beyond the field.
-        </div>
-
-        <div class="hero-description">
-            An intelligent agriculture platform combining local plant
-            disease classification, AI-powered farmer assistance
-            and manual farm-condition monitoring.
-        </div>
-
-        <div>
-            <span class="hero-tag">LOCAL EDGE AI</span>
-            <span class="hero-tag">15 PLANT CLASSES</span>
-            <span class="hero-tag">AI FARM ASSISTANT</span>
-            <span class="hero-tag">FARM MONITORING</span>
-        </div>
-
-    </div>
-    """)
-
-    
-    # SYSTEM OVERVIEW
-
-    api_ready = bool(os.getenv("GEMINI_API_KEY"))
-    records = get_records()
-
     model_value = "Ready" if status["ready"] else "Offline"
     api_value = "Connected" if api_ready else "Offline"
 
     model_color = "#42e6a0" if status["ready"] else "#ff647c"
     api_color = "#42e6a0" if api_ready else "#ff647c"
 
+    # --------------------------------------------------
+    # HERO SECTION
+    # --------------------------------------------------
+
     st.html("""
     <div style="
-        color:#19d9f5;
-        font-size:10px;
-        font-weight:800;
-        letter-spacing:2px;
-        margin:8px 0 12px;
+        background:
+            radial-gradient(circle at 90% 10%,#17465a 0%,transparent 40%),
+            linear-gradient(120deg,#102b3a,#142331,#101923);
+        border:1px solid #245064;
+        border-radius:20px;
+        padding:34px 30px;
+        margin-bottom:28px;
+        position:relative;
+        overflow:hidden;
     ">
-        SYSTEM OVERVIEW
-    </div>
+        <div style="
+            color:#19d9f5;
+            font-size:12px;
+            font-weight:800;
+            letter-spacing:3px;
+        ">
+            AGRISENSE AI · SMART AGRICULTURE
+        </div>
 
-    <div style="
-        color:#f4f7fb;
-        font-size:25px;
-        font-weight:750;
-        margin-bottom:24px;
-    ">
-        Your intelligence workspace
+        <div style="
+            color:white;
+            font-size:42px;
+            font-weight:850;
+            margin-top:20px;
+            line-height:1.15;
+        ">
+            Grow smarter.
+        </div>
+
+        <div style="
+            color:#19d9f5;
+            font-size:25px;
+            font-weight:650;
+            margin-top:5px;
+        ">
+            Think beyond the field.
+        </div>
+
+        <div style="
+            color:#b8cbd7;
+            font-size:15px;
+            line-height:1.8;
+            max-width:650px;
+            margin-top:18px;
+        ">
+            An intelligent agriculture platform combining local plant
+            disease classification, AI-powered farmer assistance
+            and farm-condition monitoring.
+        </div>
+
+        <div style="margin-top:23px;">
+            <span style="background:#173c4d;color:#19d9f5;
+                padding:8px 12px;border-radius:20px;
+                font-size:11px;margin:4px;display:inline-block;">
+                LOCAL EDGE AI
+            </span>
+            <span style="background:#173c4d;color:#19d9f5;
+                padding:8px 12px;border-radius:20px;
+                font-size:11px;margin:4px;display:inline-block;">
+                15 PLANT CLASSES
+            </span>
+            <span style="background:#173c4d;color:#19d9f5;
+                padding:8px 12px;border-radius:20px;
+                font-size:11px;margin:4px;display:inline-block;">
+                GEMINI AI
+            </span>
+            <span style="background:#173c4d;color:#19d9f5;
+                padding:8px 12px;border-radius:20px;
+                font-size:11px;margin:4px;display:inline-block;">
+                FARM MONITORING
+            </span>
+        </div>
     </div>
     """)
 
+    # --------------------------------------------------
+    # SYSTEM STATUS
+    # --------------------------------------------------
+
+    st.markdown(
+        '<div class="section-eyebrow">SYSTEM OVERVIEW</div>',
+        unsafe_allow_html=True
+    )
+
+    st.subheader("Your intelligence workspace")
+    st.caption("Current application and service status.")
+
     st.html(f"""
     <style>
-    .status-grid {{
+    .agri-status-grid {{
         display:grid;
         grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:16px;
-        width:100%;
-        margin-bottom:34px;
+        gap:14px;
+        margin:16px 0 28px;
     }}
 
-    .status-card {{
-        background:linear-gradient(145deg,#15212e,#101923);
-        border:1px solid #263747;
-        border-radius:14px;
-        min-height:142px;
+    .agri-status-card {{
+        background:linear-gradient(145deg,#172635,#101923);
+        border:1px solid #294052;
+        border-radius:16px;
         padding:22px;
+        min-height:145px;
         box-sizing:border-box;
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
     }}
 
-    .status-label {{
-        color:#aab7c5;
+    .agri-status-label {{
+        color:#aabac9;
         font-size:13px;
-        margin-bottom:17px;
+        margin-bottom:18px;
     }}
 
-    .status-value-row {{
+    .agri-status-value {{
+        color:#f4f7fb;
+        font-size:26px;
+        font-weight:800;
         display:flex;
         align-items:center;
         gap:10px;
-        margin-bottom:9px;
     }}
 
-    .status-indicator {{
-        width:11px;
-        height:11px;
-        min-width:11px;
+    .agri-status-dot {{
+        width:10px;
+        height:10px;
         border-radius:50%;
         display:inline-block;
     }}
 
-    .status-value {{
-        color:#f4f7fb;
-        font-size:25px;
-        font-weight:750;
-        line-height:1.2;
-    }}
-
-    .status-description {{
+    .agri-status-description {{
         color:#8495a5;
         font-size:12px;
-        line-height:1.5;
+        margin-top:12px;
     }}
 
-    @media(max-width:750px) {{
-        .status-grid {{
+    @media(max-width:700px) {{
+        .agri-status-grid {{
             grid-template-columns:1fr;
         }}
     }}
     </style>
 
-    <div class="status-grid">
+    <div class="agri-status-grid">
 
-        <div class="status-card">
-            <div class="status-label">Plant AI Model</div>
-            <div class="status-value-row">
-                <span class="status-indicator"
+        <div class="agri-status-card">
+            <div class="agri-status-label">🌿 Plant AI Model</div>
+            <div class="agri-status-value">
+                <span class="agri-status-dot"
                     style="background:{model_color};"></span>
-                <span class="status-value">{model_value}</span>
+                {model_value}
             </div>
-            <div class="status-description">
-                Local image inference
+            <div class="agri-status-description">
+                Local plant disease classification
             </div>
         </div>
 
-        <div class="status-card">
-            <div class="status-label">AI Farm Assistant</div>
-            <div class="status-value-row">
-                <span class="status-indicator"
+        <div class="agri-status-card">
+            <div class="agri-status-label">🤖 AI Farmer Assistant</div>
+            <div class="agri-status-value">
+                <span class="agri-status-dot"
                     style="background:{api_color};"></span>
-                <span class="status-value">{api_value}</span>
+                {api_value}
             </div>
-            <div class="status-description">
-                Online agricultural AI
+            <div class="agri-status-description">
+                Gemini API connection status
             </div>
         </div>
 
-        <div class="status-card">
-            <div class="status-label">Saved Assessments</div>
-            <div class="status-value-row">
-                <span class="status-value">{len(records)}</span>
+        <div class="agri-status-card">
+            <div class="agri-status-label">📁 Saved Assessments</div>
+            <div class="agri-status-value">
+                {len(records)}
             </div>
-            <div class="status-description">
+            <div class="agri-status-description">
                 Stored assessment records
             </div>
         </div>
@@ -1391,9 +1415,9 @@ if page == "Dashboard":
     </div>
     """)
 
-
-    
-    # YOUR TOOLS
+    # --------------------------------------------------
+    # QUICK ACCESS TOOLS
+    # --------------------------------------------------
 
     st.markdown(
         '<div class="section-eyebrow">YOUR TOOLS</div>',
@@ -1401,60 +1425,79 @@ if page == "Dashboard":
     )
 
     st.subheader("Explore AgriSense")
-    st.caption("Choose a workspace to get started.")
+    st.caption("Select a module to access its features.")
 
     tool_data = [
         {
             "icon": "🌿",
             "title": "Plant Doctor",
-            "description": "Identify plant diseases using local AI-powered image classification.",
+            "description": "Analyze plant leaf images and identify possible diseases using a local AI model.",
             "button": "Open Plant Doctor →",
-            "page": "Plant Doctor"
+            "page": "Plant Doctor",
+            "tag": "EDGE AI"
         },
         {
-            "icon": "💬",
+            "icon": "🤖",
             "title": "Farmer Assistant",
-            "description": "Get AI-powered answers to agricultural and crop-management questions.",
+            "description": "Ask agricultural questions and receive AI-powered crop-management guidance.",
             "button": "Open Assistant →",
-            "page": "Farmer Assistant"
+            "page": "Farmer Assistant",
+            "tag": "GEMINI AI"
         },
         {
             "icon": "📊",
             "title": "Farm Monitoring",
-            "description": "Review temperature, humidity, soil moisture and rainfall conditions.",
+            "description": "Monitor environmental readings, review historical trends and identify potential risks.",
             "button": "Open Monitoring →",
-            "page": "Farm Monitoring"
+            "page": "Farm Monitoring",
+            "tag": "FIELD INTELLIGENCE"
         }
     ]
 
     tool_cols = st.columns(3, gap="medium")
 
     for col, tool in zip(tool_cols, tool_data):
+
         with col:
+
             with st.container(border=True):
+
                 st.markdown(
                     f"""
                     <div style="
-                        height:48px;
-                        font-size:30px;
-                        display:flex;
-                        align-items:center;
-                        margin-bottom:15px;
-                    ">{tool['icon']}</div>
+                        font-size:32px;
+                        margin-bottom:14px;
+                    ">
+                        {tool['icon']}
+                    </div>
+
                     <div style="
                         color:#f4f7fb;
                         font-size:21px;
-                        font-weight:750;
-                        min-height:32px;
+                        font-weight:800;
+                        margin-bottom:10px;
+                    ">
+                        {tool['title']}
+                    </div>
+
+                    <div style="
+                        color:#19d9f5;
+                        font-size:10px;
+                        font-weight:800;
+                        letter-spacing:1.5px;
                         margin-bottom:12px;
-                    ">{tool['title']}</div>
+                    ">
+                        {tool['tag']}
+                    </div>
+
                     <div style="
                         color:#9aabba;
                         font-size:13px;
                         line-height:1.7;
-                        min-height:66px;
-                        margin-bottom:18px;
-                    ">{tool['description']}</div>
+                        min-height:88px;
+                    ">
+                        {tool['description']}
+                    </div>
                     """,
                     unsafe_allow_html=True
                 )
@@ -1466,6 +1509,53 @@ if page == "Dashboard":
                     on_click=navigate_to,
                     args=(tool["page"],)
                 )
+
+    # --------------------------------------------------
+    # PLATFORM CAPABILITIES
+    # --------------------------------------------------
+
+    st.markdown("---")
+
+    st.markdown(
+        '<div class="section-eyebrow">PLATFORM CAPABILITIES</div>',
+        unsafe_allow_html=True
+    )
+
+    st.subheader("One platform. Multiple intelligence tools.")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.markdown("### 🧠 AI-powered analysis")
+        st.write(
+            "Plant disease classification, agricultural question "
+            "answering and automated condition screening."
+        )
+
+        st.markdown("### 🌱 Agriculture-focused insights")
+        st.write(
+            "Designed to help users understand plant health and "
+            "environmental conditions."
+        )
+
+    with c2:
+        st.markdown("### ⚡ Edge AI approach")
+        st.write(
+            "Plant image classification uses a locally loaded model "
+            "rather than requiring a cloud inference API."
+        )
+
+        st.markdown("### 📡 Expandable architecture")
+        st.write(
+            "Designed with a future pathway for ESP32-based "
+            "environmental sensor integration."
+        )
+
+    st.caption(
+        "AgriSense AI is an academic prototype. Its outputs are "
+        "preliminary decision-support information, not guaranteed "
+        "agronomic diagnoses."
+    )
 
 
     
