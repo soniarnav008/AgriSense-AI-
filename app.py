@@ -5,6 +5,7 @@ import hashlib
 
 import streamlit as st
 from dotenv import load_dotenv
+from zoneinfo import ZoneInfo
 
 from src.storage import init_db, save_record, get_records
 from src.plant_doctor import predict_leaf_disease, model_status
@@ -2187,7 +2188,7 @@ elif page == "Farm Monitoring":
 
             # Save reading in session history
             st.session_state.monitoring_history.append({
-                "Time": datetime.now().strftime("%H:%M:%S"),
+                "Time": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%H:%M:%S"),
                 "Crop": crop,
                 "Temperature": temperature,
                 "Humidity": humidity,
