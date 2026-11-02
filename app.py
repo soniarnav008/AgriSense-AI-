@@ -2101,6 +2101,51 @@ elif page == "Farm Monitoring":
 
         st.markdown("---")
         st.subheader("📈 Farm Health Screening Report")
+                # FARM CONDITION GRAPHS
+
+        st.markdown("### 📊 Environmental Readings")
+
+        inputs = result["inputs"]
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("**Moisture & Humidity (%)**")
+
+            moisture_data = {
+                "Parameter": ["Soil Moisture", "Humidity"],
+                "Value": [
+                    inputs["soil_moisture_percent"],
+                    inputs["relative_humidity_percent"]
+                ]
+            }
+
+            st.bar_chart(
+                moisture_data,
+                x="Parameter",
+                y="Value",
+                color="#19d9f5"
+            )
+
+        with col2:
+            st.markdown("**Temperature & Rainfall**")
+
+            environment_data = {
+                "Parameter": ["Temperature (°C)", "Rainfall (mm)"],
+                "Value": [
+                    inputs["temperature_c"],
+                    inputs["recent_rainfall_mm"]
+                ]
+            }
+
+            st.bar_chart(
+                environment_data,
+                x="Parameter",
+                y="Value",
+                color="#42e6a0"
+            )
+
+        st.divider()
 
         if result.get("alerts"):
 
