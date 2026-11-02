@@ -8,11 +8,26 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Updated 15-class model
+# Model paths
+TFLITE_PATH = ROOT / "models" / "plant_disease_model_15class.tflite"
 MODEL_PATH = ROOT / "models" / "plant_disease_model_15class.keras"
 LABELS_PATH = ROOT / "models" / "labels_15class.json"
 
 IMAGE_SIZE = 160
+
+
+@lru_cache(maxsize=1)
+def _load_tflite():
+    if not TFLITE_PATH.exists():
+        return None
+
+    import tensorflow as tf
+
+    interpreter = tf.lite.Interpreter(
+        model_path=str(TFLITE_PATH)
+    )
+    interpreter.allocate_tensors()
+    return interpreter
 
 
 @lru_cache(maxsize=1)
@@ -21,7 +36,9 @@ def _load_model():
         return None
 
     import tensorflow as tf
-    return tf.keras.models.load_model(MODEL_PATH)
+    return tf.keras.models.load_model(
+        MODEL_PATH, compile=False
+    )
 
 
 def _load_labels():
@@ -68,18 +85,22 @@ def _format_disease(label):
 
 
 def model_status():
-    ready = MODEL_PATH.exists() and LABELS_PATH.exists()
+    tflite_exists = TFLITE_PATH.exists()
+    keras_exists = MODEL_PATH.exists()
+
+    active_path = TFLITE_PATH if tflite_exists else MODEL_PATH
 
     size_mb = (
-        MODEL_PATH.stat().st_size / (1024 * 1024)
-        if MODEL_PATH.exists() else 0
+        active_path.stat().st_size / (1024 * 1024)
+        if active_path.exists() else 0
     )
 
     return {
-        "ready": ready,
+        "ready": (tflite_exists or keras_exists) and LABELS_PATH.exists(),
         "size_mb": size_mb,
-        "model_path": str(MODEL_PATH),
-        "labels_path": str(LABELS_PATH)
+        "model_path": str(active_path),
+        "labels_path": str(LABELS_PATH),
+        "inference_engine": "TFLite" if tflite_exists else "Keras"
     }
 
 
@@ -88,14 +109,13 @@ def predict_leaf_disease(image):
 
     try:
         import tensorflow as tf
-        from PIL import Image
 
-        model = _load_model()
         labels = _load_labels()
 
-        if model is None or labels is None:
-            return {"error": "15-class model or labels are missing."}
+        if labels is None:
+            return {"error": "15-class model labels are missing."}
 
+        # Same preprocessing as original Keras model
         image = image.convert("RGB").resize(
             (IMAGE_SIZE, IMAGE_SIZE)
         )
@@ -108,7 +128,38 @@ def predict_leaf_disease(image):
 
         batch = np.expand_dims(array, axis=0)
 
-        output = model.predict(batch, verbose=0)
+        # TFLite first, Keras fallback
+        engine = "TFLite"
+
+        try:
+            interpreter = _load_tflite()
+
+            if interpreter is None:
+                raise RuntimeError("TFLite model unavailable")
+
+            input_details = interpreter.get_input_details()
+            output_details = interpreter.get_output_details()
+
+            interpreter.set_tensor(
+                input_details[0]["index"], batch
+            )
+            interpreter.invoke()
+
+            output = interpreter.get_tensor(
+                output_details[0]["index"]
+            )
+
+        except Exception as tflite_error:
+            print("TFLite unavailable, using Keras:", tflite_error)
+
+            engine = "Keras"
+            model = _load_model()
+
+            if model is None:
+                return {"error": "Both TFLite and Keras models are unavailable."}
+
+            output = model.predict(batch, verbose=0)
+
         scores = np.asarray(output).reshape(-1)
 
         if len(scores) != len(labels):
@@ -129,17 +180,13 @@ def predict_leaf_disease(image):
         predicted_label = top[0]["label"]
         confidence = top[0]["confidence"]
 
-        return{
+        return {
             "label": predicted_label,
             "display_label": top[0]["display_label"],
             "crop": _get_crop(predicted_label),
             "confidence": confidence,
             "top_predictions": top,
-
-            # Confidence warning
             "low_confidence": confidence < 0.70,
-
-            # Warning message
             "confidence_message": (
                 "Low confidence! Please upload a clearer leaf image "
                 "or consult an agriculture expert."
@@ -147,10 +194,11 @@ def predict_leaf_disease(image):
                 else "The model has relatively high confidence "
                      "in this prediction."
             ),
-
+            "inference_engine": engine,
             "latency_ms": (
                 time.perf_counter() - start
             ) * 1000
         }
+
     except Exception as exc:
         return {"error": f"Prediction failed: {exc}"}
