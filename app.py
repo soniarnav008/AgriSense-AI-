@@ -1552,21 +1552,22 @@ elif page == "Plant Doctor":
             AI-powered crop health guidance.
         </div>
         <div style="font-size:15px;color:#19d9f5;margin-top:18px;">
-            15 CLASSES &nbsp; · &nbsp; 3 CROPS &nbsp; · &nbsp; LOCAL AI MODEL
+            MULTI-CROP IDENTIFICATION &nbsp; · &nbsp;
+            15 DISEASE CLASSES &nbsp; · &nbsp; AI-POWERED ANALYSIS
         </div>
     </div>
     """)
 
     st.subheader("Upload Plant Image")
     st.write(
-        "Upload a clear image of a tomato, potato or pepper leaf "
-        "for AI-based disease classification."
-    )
+    "Upload a leaf image from any crop for AI-based crop "
+    "identification and supported disease classification."
+)
 
     st.caption(
-        "Supported categories: 10 Tomato classes, 3 Potato classes "
-        "and 2 Pepper classes."
-    )
+    "Crop identification supports a broad range of plants. "
+    "Disease classification currently supports Tomato, Potato and Pepper."
+)
 
 
     uploaded = st.file_uploader(
@@ -1606,7 +1607,7 @@ elif page == "Plant Doctor":
 
             if st.button("🔍 Analyze Plant", type="primary"):
 
-                with st.spinner("Analyzing plant image locally..."):
+                with st.spinner("Identifying crop and analyzing plant health..."):
 
                     try:
                         result = predict_leaf_disease(image)
@@ -1616,10 +1617,14 @@ elif page == "Plant Doctor":
                         result = {
                             "error": str(error)
                         }
-                    if result.get("inference_engine") == "TFLite":
+                    engine = result.get("inference_engine")
+
+                    if engine == "TFLite":
                         st.success("⚡ TensorFlow Lite Edge Inference Active")
-                    else:
-                            st.info("Keras Model Inference Active")
+                    elif engine == "Keras":
+                        st.info("Keras Model Inference Active")
+                    elif engine == "Gemini Vision":
+                        st.info("🌿 Gemini Vision Crop Identification Active")
 
                 st.session_state.last_plant_result = {
                     "result": result,
@@ -1644,9 +1649,77 @@ elif page == "Plant Doctor":
                 if result.get("error"):
 
                     st.error(result["error"])
-
+                
+                elif result.get("status") == "uncertain":
+                
+                    st.divider()
+                    st.header("🌿 Plant Identification Report")
+                
+                    st.warning("Crop identification is uncertain.")
+                
+                    st.metric(
+                        "Identification Score",
+                        f"{result.get('crop_confidence', 0):.2%}"
+                    )
+                
+                    st.info(
+                        result.get(
+                            "message",
+                            "Please upload a clearer leaf image."
+                        )
+                    )
+                
+                elif result.get("status") == "crop_identified":
+                
+                    st.divider()
+                    st.header("🌿 Plant Identification Report")
+                
+                    st.success(
+                        f"Identified Crop: {result.get('crop', 'Unknown')}"
+                    )
+                
+                    st.metric(
+                        "Crop Identification Score",
+                        f"{result.get('crop_confidence', 0):.2%}"
+                    )
+                
+                    st.warning(result.get("message", ""))
+                
+                    st.info(
+                        "Disease classification for this crop is not currently "
+                        "available. No disease prediction has been generated."
+                    )
+                
+                    st.caption(
+                        "Crop identification was performed using Gemini Vision. "
+                        "Please verify the result visually."
+                    )
+                
+                elif result.get("status") == "crop_mismatch":
+                
+                    st.divider()
+                    st.header("🌿 Plant Identification Report")
+                
+                    st.warning("Crop identification and disease model disagree.")
+                
+                    st.write(
+                        f"**Gemini crop identification:** {result.get('crop')}"
+                    )
+                
+                    st.write(
+                        f"**Disease classifier crop:** "
+                        f"{result.get('classifier_crop')}"
+                    )
+                
+                    st.error(
+                        result.get(
+                            "message",
+                            "Disease prediction withheld because of crop mismatch."
+                        )
+                    )
+                
                 else:
-
+                
                     label = result.get("label", "Unknown")
                     guide = DISEASE_GUIDE.get(label)
 
