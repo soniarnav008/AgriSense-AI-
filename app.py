@@ -2,7 +2,8 @@
 import json
 import os
 import hashlib
-
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -1991,7 +1992,12 @@ elif page == "Farmer Assistant":
 # ==================================================
 
 elif page == "Farm Monitoring":
+    current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 
+    st.caption(
+        "🕒 Current Time (IST): "
+        + current_time.strftime("%d %B %Y | %I:%M:%S %p")
+    )
     
     st.html("""
     <div style="
