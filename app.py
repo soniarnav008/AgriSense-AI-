@@ -10,7 +10,10 @@ from dotenv import load_dotenv
 from src.storage import init_db, save_record, get_records
 from src.plant_doctor import predict_leaf_disease, model_status
 from src.chatbot import ask_farmer_assistant
-from src.monitoring import assess_conditions
+from src.monitoring import (
+    assess_conditions,
+    build_crop_advisor
+)
 from src.reports import make_markdown_report
 
 load_dotenv()
@@ -2064,14 +2067,16 @@ elif page == "Farmer Assistant":
 # FARM MONITORING
 # ==================================================
 
+
 elif page == "Farm Monitoring":
+
     current_time = datetime.now(ZoneInfo("Asia/Kolkata"))
 
     st.caption(
         "🕒 Current Time (IST): "
         + current_time.strftime("%d %B %Y | %I:%M:%S %p")
     )
-    
+
     st.html("""
     <div style="
         background:linear-gradient(120deg,#102b3a,#142331,#10202b);
@@ -2082,28 +2087,25 @@ elif page == "Farm Monitoring":
     ">
         <div style="color:#19d9f5;font-size:14px;font-weight:700;
                     letter-spacing:2px;">
-            AGRISENSE AI · FIELD INTELLIGENCE
+            AGRISENSE AI · SMART AGRICULTURE
         </div>
         <div style="font-size:36px;font-weight:800;color:#ffffff;
                     margin-top:10px;">
-            📊 Farm Monitoring
+            🌱 Smart Crop Advisor
         </div>
-        <div style="font-size:18px;color:#b8cbd7;margin-top:10px;
+        <div style="font-size:17px;color:#b8cbd7;margin-top:10px;
                     line-height:1.7;">
-            Monitor environmental conditions and identify potential
-            crop risks through intelligent rule-based screening.
+            Intelligent field screening, crop-specific recommendations,
+            preventive care planning and historical crop intelligence.
         </div>
-        <div style="font-size:15px;color:#19d9f5;margin-top:18px;">
-            SOIL MOISTURE · TEMPERATURE · HUMIDITY · RAINFALL
+        <div style="font-size:14px;color:#19d9f5;margin-top:18px;">
+            CROP HEALTH · RISK ANALYSIS · CROP CARE · FIELD HISTORY
         </div>
     </div>
     """)
 
-    st.subheader("🌱 Enter Farm Conditions")
-    st.caption(
-        "Enter your field readings below to generate a screening report."
-    )
-
+    st.subheader("🌾 Farm Environment Assessment")
+    st.caption("Enter your latest field readings to generate a crop advisory.")
 
     with st.form("farm_form"):
 
@@ -2112,42 +2114,43 @@ elif page == "Farm Monitoring":
         with a:
 
             crop = st.selectbox(
-                "Crop",
-                ["Wheat", "Rice", "Tomato", "Potato", "Maize", "Other"],
+                "Select Crop",
+                [
+                    "Wheat", "Rice", "Tomato", "Potato",
+                    "Maize", "Cotton", "Apple", "Grape",
+                    "Pepper", "Soybean", "Other"
+                ]
             )
 
             moisture = st.slider(
-                "Soil moisture (%)",
-                0, 100, 25
+                "Soil Moisture (%)", 0, 100, 25
             )
 
             temperature = st.slider(
-                "Temperature (°C)",
-                -5, 55, 30
+                "Temperature (°C)", -5, 55, 30
             )
 
         with b:
 
             humidity = st.slider(
-                "Relative humidity (%)",
-                0, 100, 55
+                "Relative Humidity (%)", 0, 100, 55
             )
 
             rainfall = st.number_input(
-                "Recent rainfall (mm)",
+                "Recent Rainfall (mm)",
                 min_value=0.0,
                 max_value=500.0,
                 value=0.0,
-                step=1.0,
+                step=1.0
             )
 
-            notes = st.text_input("Optional field notes")
+            notes = st.text_input("Field Notes (Optional)")
 
         submitted = st.form_submit_button(
-    "🔍 Analyze Farm Conditions",
-    type="primary",
-    use_container_width=True
-)
+            "🔍 Generate Smart Crop Advisory",
+            type="primary",
+            use_container_width=True
+        )
 
     if submitted:
 
@@ -2171,25 +2174,109 @@ elif page == "Farm Monitoring":
             }
 
         except Exception as error:
+            st.error(f"Assessment failed: {error}")
 
-            st.error(f"Unable to assess farm conditions: {error}")
-
-    result = st.session_state.last_farm_result
+    result = st.session_state.get("last_farm_result")
 
     if result:
 
-        st.markdown("---")
-        st.subheader("📈 Farm Health Screening Report")
-                # FARM CONDITION GRAPHS
-
-        st.markdown("### 📊 Environmental Readings")
+        st.divider()
 
         inputs = result["inputs"]
+        alerts = result["alerts"]
+
+        # SAVE ASSESSMENT
+
+        if st.button(
+            "💾 Save Farm Assessment",
+            use_container_width=True,
+            key="save_farm_assessment"
+        ):
+
+            save_record(
+                "farm_conditions",
+                inputs["crop"],
+                result
+            )
+
+            st.success("Farm assessment saved successfully!")
+
+        # BUILD ADVISOR
+
+        records = get_records(limit=200)
+
+        advisor = build_crop_advisor(
+            result,
+            records
+        )
+
+        risk = advisor["risk"]
+
+        # -------------------------------------------------
+        # 1. CROP HEALTH OVERVIEW
+        # -------------------------------------------------
+
+        st.markdown("## 📊 Crop Health Overview")
+
+        st.caption(
+            f"Current assessment for {inputs['crop']}"
+        )
+
+        c1, c2, c3, c4 = st.columns(4)
+
+        c1.metric(
+            "Risk Score",
+            f"{risk['score']}/100"
+        )
+
+        c2.metric(
+            "Risk Level",
+            risk["level"]
+        )
+
+        c3.metric(
+            "Active Alerts",
+            len(alerts)
+        )
+
+        c4.metric(
+            "Crop",
+            inputs["crop"]
+        )
+
+        if risk["level"] == "High":
+            st.error(
+                "High screening risk. Review the recommendations below."
+            )
+
+        elif risk["level"] == "Moderate":
+            st.warning(
+                "Moderate screening risk. Monitor field conditions."
+            )
+
+        else:
+            st.success(
+                "No significant screening risk detected from the entered values."
+            )
+
+        st.caption(
+            "Risk score is a rule-based demo indicator, not a probability "
+            "of crop failure or a scientifically calibrated disease prediction."
+        )
+
+        st.divider()
+
+        # -------------------------------------------------
+        # 2. ENVIRONMENTAL READINGS
+        # -------------------------------------------------
+
+        st.markdown("## 🌡️ Environmental Intelligence")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            st.markdown("**Moisture & Humidity (%)**")
+
+            st.markdown("**Soil Moisture & Humidity**")
 
             moisture_data = {
                 "Parameter": ["Soil Moisture", "Humidity"],
@@ -2207,6 +2294,7 @@ elif page == "Farm Monitoring":
             )
 
         with col2:
+
             st.markdown("**Temperature & Rainfall**")
 
             environment_data = {
@@ -2226,9 +2314,15 @@ elif page == "Farm Monitoring":
 
         st.divider()
 
-        if result.get("alerts"):
+        # -------------------------------------------------
+        # 3. SMART ALERTS
+        # -------------------------------------------------
 
-            for alert in result["alerts"]:
+        st.markdown("## 🚨 Smart Field Alerts")
+
+        if alerts:
+
+            for alert in alerts:
 
                 message = (
                     f'**{alert["title"]}:** {alert["detail"]}'
@@ -2245,25 +2339,131 @@ elif page == "Farm Monitoring":
 
         else:
 
-            st.info(
-                "No rule-based alerts were triggered for these inputs. "
+            st.success(
+                "No rule-based alerts were triggered. "
                 "This does not guarantee the crop is healthy."
             )
 
+        st.divider()
+
+        # -------------------------------------------------
+        # 4. TREATMENT AND PREVENTION PLANNER
+        # -------------------------------------------------
+
+        st.markdown("## 🧠 Smart Treatment & Prevention Planner")
+
+        for index, item in enumerate(advisor["recommendations"], 1):
+
+            with st.container(border=True):
+
+                st.markdown(
+                    f"### {index}. {item['title']}"
+                )
+
+                st.caption(
+                    f"Priority: {item['priority']}"
+                )
+
+                st.write(item["action"])
+
+        st.divider()
+
+        # -------------------------------------------------
+        # 5. CROP CARE CALENDAR
+        # -------------------------------------------------
+
+        st.markdown("## 📅 7-Day Crop-Care Calendar")
+
+        for task in advisor["calendar"]:
+
+            with st.container(border=True):
+
+                st.markdown(
+                    f"**{task['date']} — {task['task']}**"
+                )
+
+                st.write(task["description"])
+
         st.caption(
-            "Rules are preliminary screening heuristics, not crop-specific "
-            "agronomic recommendations."
+            "These are suggested inspection and care reminders, "
+            "not automatic irrigation schedules."
         )
 
-        if st.button("Save monitoring assessment"):
+        st.divider()
 
-            save_record(
-                "farm_conditions",
-                result["inputs"]["crop"],
-                result,
+        # -------------------------------------------------
+        # 6. HISTORICAL CROP INTELLIGENCE
+        # -------------------------------------------------
+
+        st.markdown("## 📈 Historical Crop Intelligence")
+
+        history = advisor["history"]
+
+        if history["available"]:
+
+            st.metric(
+                "Previous Assessments",
+                history["total_assessments"]
             )
 
-            st.success("Monitoring assessment saved.")
+            h1, h2, h3 = st.columns(3)
+
+            h1.metric(
+                "Average Moisture",
+                f"{history['average_moisture']}%"
+                if history["average_moisture"] is not None
+                else "N/A"
+            )
+
+            h2.metric(
+                "Average Temperature",
+                f"{history['average_temperature']}°C"
+                if history["average_temperature"] is not None
+                else "N/A"
+            )
+
+            h3.metric(
+                "Average Humidity",
+                f"{history['average_humidity']}%"
+                if history["average_humidity"] is not None
+                else "N/A"
+            )
+
+            st.markdown("### Assessment History")
+
+            history_rows = history["records"]
+
+            st.dataframe(
+                [
+                    {
+                        "Date": item["created_at"],
+                        "Moisture (%)": item["moisture"],
+                        "Temperature (°C)": item["temperature"],
+                        "Humidity (%)": item["humidity"],
+                        "Rainfall (mm)": item["rainfall"],
+                        "Alerts": item["alert_count"]
+                    }
+                    for item in history_rows
+                ],
+                use_container_width=True,
+                hide_index=True
+            )
+
+        else:
+
+            st.info(
+                "No previous farm assessments found for this crop. "
+                "Save your assessments to build historical crop intelligence."
+            )
+
+        st.divider()
+
+        st.caption(
+            "AgriSense AI provides preliminary, rule-based agricultural "
+            "screening. Recommendations are informational and should be "
+            "verified against local agricultural guidance."
+        )
+
 
 
 # ==================================================
