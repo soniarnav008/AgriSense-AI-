@@ -5,7 +5,6 @@ import hashlib
 
 import streamlit as st
 from dotenv import load_dotenv
-from zoneinfo import ZoneInfo
 
 from src.storage import init_db, save_record, get_records
 from src.plant_doctor import predict_leaf_disease, model_status
@@ -1214,7 +1213,6 @@ with st.sidebar:
 
 
 
-
 # ==================================================
 # DASHBOARD
 # ==================================================
@@ -1225,190 +1223,167 @@ if page == "Dashboard":
     records = get_records()
     api_ready = bool(os.getenv("GEMINI_API_KEY"))
 
+    # HERO SECTION
+
+    st.html("""
+    <div class="hero-panel">
+
+        <div class="hero-label">
+            SMART AGRICULTURE · EDGE AI
+        </div>
+
+        <div class="hero-title">
+            Grow smarter.
+        </div>
+
+        <div class="hero-subtitle">
+            Think beyond the field.
+        </div>
+
+        <div class="hero-description">
+            An intelligent agriculture platform combining local plant
+            disease classification, AI-powered farmer assistance
+            and manual farm-condition monitoring.
+        </div>
+
+        <div>
+            <span class="hero-tag">LOCAL EDGE AI</span>
+            <span class="hero-tag">15 PLANT CLASSES</span>
+            <span class="hero-tag">AI FARM ASSISTANT</span>
+            <span class="hero-tag">FARM MONITORING</span>
+        </div>
+
+    </div>
+    """)
+
+    
+    # SYSTEM OVERVIEW
+
+    api_ready = bool(os.getenv("GEMINI_API_KEY"))
+    records = get_records()
+
     model_value = "Ready" if status["ready"] else "Offline"
     api_value = "Connected" if api_ready else "Offline"
 
     model_color = "#42e6a0" if status["ready"] else "#ff647c"
     api_color = "#42e6a0" if api_ready else "#ff647c"
 
-    # --------------------------------------------------
-    # HERO SECTION
-    # --------------------------------------------------
-
     st.html("""
     <div style="
-        background:
-            radial-gradient(circle at 90% 10%,#17465a 0%,transparent 40%),
-            linear-gradient(120deg,#102b3a,#142331,#101923);
-        border:1px solid #245064;
-        border-radius:20px;
-        padding:34px 30px;
-        margin-bottom:28px;
-        position:relative;
-        overflow:hidden;
+        color:#19d9f5;
+        font-size:10px;
+        font-weight:800;
+        letter-spacing:2px;
+        margin:8px 0 12px;
     ">
-        <div style="
-            color:#19d9f5;
-            font-size:12px;
-            font-weight:800;
-            letter-spacing:3px;
-        ">
-            AGRISENSE AI · SMART AGRICULTURE
-        </div>
+        SYSTEM OVERVIEW
+    </div>
 
-        <div style="
-            color:white;
-            font-size:42px;
-            font-weight:850;
-            margin-top:20px;
-            line-height:1.15;
-        ">
-            Grow smarter.
-        </div>
-
-        <div style="
-            color:#19d9f5;
-            font-size:25px;
-            font-weight:650;
-            margin-top:5px;
-        ">
-            Think beyond the field.
-        </div>
-
-        <div style="
-            color:#b8cbd7;
-            font-size:15px;
-            line-height:1.8;
-            max-width:650px;
-            margin-top:18px;
-        ">
-            An intelligent agriculture platform combining local plant
-            disease classification, AI-powered farmer assistance
-            and farm-condition monitoring.
-        </div>
-
-        <div style="margin-top:23px;">
-            <span style="background:#173c4d;color:#19d9f5;
-                padding:8px 12px;border-radius:20px;
-                font-size:11px;margin:4px;display:inline-block;">
-                LOCAL EDGE AI
-            </span>
-            <span style="background:#173c4d;color:#19d9f5;
-                padding:8px 12px;border-radius:20px;
-                font-size:11px;margin:4px;display:inline-block;">
-                15 PLANT CLASSES
-            </span>
-            <span style="background:#173c4d;color:#19d9f5;
-                padding:8px 12px;border-radius:20px;
-                font-size:11px;margin:4px;display:inline-block;">
-                GEMINI AI
-            </span>
-            <span style="background:#173c4d;color:#19d9f5;
-                padding:8px 12px;border-radius:20px;
-                font-size:11px;margin:4px;display:inline-block;">
-                FARM MONITORING
-            </span>
-        </div>
+    <div style="
+        color:#f4f7fb;
+        font-size:25px;
+        font-weight:750;
+        margin-bottom:24px;
+    ">
+        Your intelligence workspace
     </div>
     """)
 
-    # --------------------------------------------------
-    # SYSTEM STATUS
-    # --------------------------------------------------
-
-    st.markdown(
-        '<div class="section-eyebrow">SYSTEM OVERVIEW</div>',
-        unsafe_allow_html=True
-    )
-
-    st.subheader("Your intelligence workspace")
-    st.caption("Current application and service status.")
-
     st.html(f"""
     <style>
-    .agri-status-grid {{
+    .status-grid {{
         display:grid;
         grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:14px;
-        margin:16px 0 28px;
+        gap:16px;
+        width:100%;
+        margin-bottom:34px;
     }}
 
-    .agri-status-card {{
-        background:linear-gradient(145deg,#172635,#101923);
-        border:1px solid #294052;
-        border-radius:16px;
+    .status-card {{
+        background:linear-gradient(145deg,#15212e,#101923);
+        border:1px solid #263747;
+        border-radius:14px;
+        min-height:142px;
         padding:22px;
-        min-height:145px;
         box-sizing:border-box;
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
     }}
 
-    .agri-status-label {{
-        color:#aabac9;
+    .status-label {{
+        color:#aab7c5;
         font-size:13px;
-        margin-bottom:18px;
+        margin-bottom:17px;
     }}
 
-    .agri-status-value {{
-        color:#f4f7fb;
-        font-size:26px;
-        font-weight:800;
+    .status-value-row {{
         display:flex;
         align-items:center;
         gap:10px;
+        margin-bottom:9px;
     }}
 
-    .agri-status-dot {{
-        width:10px;
-        height:10px;
+    .status-indicator {{
+        width:11px;
+        height:11px;
+        min-width:11px;
         border-radius:50%;
         display:inline-block;
     }}
 
-    .agri-status-description {{
-        color:#8495a5;
-        font-size:12px;
-        margin-top:12px;
+    .status-value {{
+        color:#f4f7fb;
+        font-size:25px;
+        font-weight:750;
+        line-height:1.2;
     }}
 
-    @media(max-width:700px) {{
-        .agri-status-grid {{
+    .status-description {{
+        color:#8495a5;
+        font-size:12px;
+        line-height:1.5;
+    }}
+
+    @media(max-width:750px) {{
+        .status-grid {{
             grid-template-columns:1fr;
         }}
     }}
     </style>
 
-    <div class="agri-status-grid">
+    <div class="status-grid">
 
-        <div class="agri-status-card">
-            <div class="agri-status-label">🌿 Plant AI Model</div>
-            <div class="agri-status-value">
-                <span class="agri-status-dot"
+        <div class="status-card">
+            <div class="status-label">Plant AI Model</div>
+            <div class="status-value-row">
+                <span class="status-indicator"
                     style="background:{model_color};"></span>
-                {model_value}
+                <span class="status-value">{model_value}</span>
             </div>
-            <div class="agri-status-description">
-                Local plant disease classification
+            <div class="status-description">
+                Local image inference
             </div>
         </div>
 
-        <div class="agri-status-card">
-            <div class="agri-status-label">🤖 AI Farmer Assistant</div>
-            <div class="agri-status-value">
-                <span class="agri-status-dot"
+        <div class="status-card">
+            <div class="status-label">AI Farm Assistant</div>
+            <div class="status-value-row">
+                <span class="status-indicator"
                     style="background:{api_color};"></span>
-                {api_value}
+                <span class="status-value">{api_value}</span>
             </div>
-            <div class="agri-status-description">
-                Gemini API connection status
+            <div class="status-description">
+                Online agricultural AI
             </div>
         </div>
 
-        <div class="agri-status-card">
-            <div class="agri-status-label">📁 Saved Assessments</div>
-            <div class="agri-status-value">
-                {len(records)}
+        <div class="status-card">
+            <div class="status-label">Saved Assessments</div>
+            <div class="status-value-row">
+                <span class="status-value">{len(records)}</span>
             </div>
-            <div class="agri-status-description">
+            <div class="status-description">
                 Stored assessment records
             </div>
         </div>
@@ -1416,9 +1391,9 @@ if page == "Dashboard":
     </div>
     """)
 
-    # --------------------------------------------------
-    # QUICK ACCESS TOOLS
-    # --------------------------------------------------
+
+    
+    # YOUR TOOLS
 
     st.markdown(
         '<div class="section-eyebrow">YOUR TOOLS</div>',
@@ -1426,79 +1401,60 @@ if page == "Dashboard":
     )
 
     st.subheader("Explore AgriSense")
-    st.caption("Select a module to access its features.")
+    st.caption("Choose a workspace to get started.")
 
     tool_data = [
         {
             "icon": "🌿",
             "title": "Plant Doctor",
-            "description": "Analyze plant leaf images and identify possible diseases using a local AI model.",
+            "description": "Identify plant diseases using local AI-powered image classification.",
             "button": "Open Plant Doctor →",
-            "page": "Plant Doctor",
-            "tag": "EDGE AI"
+            "page": "Plant Doctor"
         },
         {
-            "icon": "🤖",
+            "icon": "💬",
             "title": "Farmer Assistant",
-            "description": "Ask agricultural questions and receive AI-powered crop-management guidance.",
+            "description": "Get AI-powered answers to agricultural and crop-management questions.",
             "button": "Open Assistant →",
-            "page": "Farmer Assistant",
-            "tag": "GEMINI AI"
+            "page": "Farmer Assistant"
         },
         {
             "icon": "📊",
             "title": "Farm Monitoring",
-            "description": "Monitor environmental readings, review historical trends and identify potential risks.",
+            "description": "Review temperature, humidity, soil moisture and rainfall conditions.",
             "button": "Open Monitoring →",
-            "page": "Farm Monitoring",
-            "tag": "FIELD INTELLIGENCE"
+            "page": "Farm Monitoring"
         }
     ]
 
     tool_cols = st.columns(3, gap="medium")
 
     for col, tool in zip(tool_cols, tool_data):
-
         with col:
-
             with st.container(border=True):
-
                 st.markdown(
                     f"""
                     <div style="
-                        font-size:32px;
-                        margin-bottom:14px;
-                    ">
-                        {tool['icon']}
-                    </div>
-
+                        height:48px;
+                        font-size:30px;
+                        display:flex;
+                        align-items:center;
+                        margin-bottom:15px;
+                    ">{tool['icon']}</div>
                     <div style="
                         color:#f4f7fb;
                         font-size:21px;
-                        font-weight:800;
-                        margin-bottom:10px;
-                    ">
-                        {tool['title']}
-                    </div>
-
-                    <div style="
-                        color:#19d9f5;
-                        font-size:10px;
-                        font-weight:800;
-                        letter-spacing:1.5px;
+                        font-weight:750;
+                        min-height:32px;
                         margin-bottom:12px;
-                    ">
-                        {tool['tag']}
-                    </div>
-
+                    ">{tool['title']}</div>
                     <div style="
                         color:#9aabba;
                         font-size:13px;
                         line-height:1.7;
-                        min-height:88px;
-                    ">
-                        {tool['description']}
-                    </div>
+                        min-height:66px;
+                        margin-bottom:18px;
+                    ">{tool['description']}</div>
                     """,
                     unsafe_allow_html=True
                 )
@@ -1510,53 +1466,6 @@ if page == "Dashboard":
                     on_click=navigate_to,
                     args=(tool["page"],)
                 )
-
-    # --------------------------------------------------
-    # PLATFORM CAPABILITIES
-    # --------------------------------------------------
-
-    st.markdown("---")
-
-    st.markdown(
-        '<div class="section-eyebrow">PLATFORM CAPABILITIES</div>',
-        unsafe_allow_html=True
-    )
-
-    st.subheader("One platform. Multiple intelligence tools.")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.markdown("### 🧠 AI-powered analysis")
-        st.write(
-            "Plant disease classification, agricultural question "
-            "answering and automated condition screening."
-        )
-
-        st.markdown("### 🌱 Agriculture-focused insights")
-        st.write(
-            "Designed to help users understand plant health and "
-            "environmental conditions."
-        )
-
-    with c2:
-        st.markdown("### ⚡ Edge AI approach")
-        st.write(
-            "Plant image classification uses a locally loaded model "
-            "rather than requiring a cloud inference API."
-        )
-
-        st.markdown("### 📡 Expandable architecture")
-        st.write(
-            "Designed with a future pathway for ESP32-based "
-            "environmental sensor integration."
-        )
-
-    st.caption(
-        "AgriSense AI is an academic prototype. Its outputs are "
-        "preliminary decision-support information, not guaranteed "
-        "agronomic diagnoses."
-    )
 
 
     
@@ -1700,11 +1609,16 @@ elif page == "Plant Doctor":
 
                     try:
                         result = predict_leaf_disease(image)
+                        
 
                     except Exception as error:
                         result = {
                             "error": str(error)
                         }
+                    if result.get("inference_engine") == "TFLite":
+                        st.success("⚡ TensorFlow Lite Edge Inference Active")
+                    else:
+                            st.info("Keras Model Inference Active")
 
                 st.session_state.last_plant_result = {
                     "result": result,
@@ -2072,23 +1986,13 @@ elif page == "Farmer Assistant":
         st.rerun()
 
 
-
 # ==================================================
 # FARM MONITORING
 # ==================================================
 
 elif page == "Farm Monitoring":
 
-    import pandas as pd
-    from datetime import datetime
-
-    # Initialize session history
-    if "monitoring_history" not in st.session_state:
-        st.session_state.monitoring_history = []
-
-    if "last_farm_result" not in st.session_state:
-        st.session_state.last_farm_result = None
-
+    
     st.html("""
     <div style="
         background:linear-gradient(120deg,#102b3a,#142331,#10202b);
@@ -2116,35 +2020,38 @@ elif page == "Farm Monitoring":
     </div>
     """)
 
-    st.info("📡 Current Mode: Manual input / simulated readings. No physical IoT sensors are connected.")
-
-    # --------------------------------------------------
-    # INPUT FORM
-    # --------------------------------------------------
-
     st.subheader("🌱 Enter Farm Conditions")
+    st.caption(
+        "Enter your field readings below to generate a screening report."
+    )
+
 
     with st.form("farm_form"):
 
         a, b = st.columns(2)
 
         with a:
+
             crop = st.selectbox(
                 "Crop",
                 ["Wheat", "Rice", "Tomato", "Potato", "Maize", "Other"],
             )
 
             moisture = st.slider(
-                "Soil moisture (%)", 0, 100, 25
+                "Soil moisture (%)",
+                0, 100, 25
             )
 
             temperature = st.slider(
-                "Temperature (°C)", -5, 55, 30
+                "Temperature (°C)",
+                -5, 55, 30
             )
 
         with b:
+
             humidity = st.slider(
-                "Relative humidity (%)", 0, 100, 55
+                "Relative humidity (%)",
+                0, 100, 55
             )
 
             rainfall = st.number_input(
@@ -2158,17 +2065,15 @@ elif page == "Farm Monitoring":
             notes = st.text_input("Optional field notes")
 
         submitted = st.form_submit_button(
-            "🔍 Analyze Farm Conditions",
-            type="primary",
-            use_container_width=True
-        )
-
-    # --------------------------------------------------
-    # ANALYSIS AND HISTORY STORAGE
-    # --------------------------------------------------
+    "🔍 Analyze Farm Conditions",
+    type="primary",
+    use_container_width=True
+)
 
     if submitted:
+
         try:
+
             result = assess_conditions(
                 crop,
                 moisture,
@@ -2186,63 +2091,16 @@ elif page == "Farm Monitoring":
                 "alerts": result["alerts"],
             }
 
-            # Save reading in session history
-            st.session_state.monitoring_history.append({
-                "Time": datetime.now(ZoneInfo("Asia/Kolkata")).strftime("%H:%M:%S"),
-                "Crop": crop,
-                "Temperature": temperature,
-                "Humidity": humidity,
-                "Soil Moisture": moisture,
-                "Rainfall": rainfall,
-            })
-
-            st.success("Farm conditions analyzed successfully!")
-
         except Exception as error:
+
             st.error(f"Unable to assess farm conditions: {error}")
 
     result = st.session_state.last_farm_result
 
-    # --------------------------------------------------
-    # INTERACTIVE MONITORING DASHBOARD
-    # --------------------------------------------------
-
     if result:
 
-        inputs = result["inputs"]
-
         st.markdown("---")
-        st.subheader("📊 Live Monitoring Dashboard")
-        st.caption("Latest submitted farm readings")
-
-        c1, c2, c3 = st.columns(3)
-
-        with c1:
-            st.metric(
-                "🌡️ Temperature",
-                f'{inputs["temperature_c"]} °C'
-            )
-
-        with c2:
-            st.metric(
-                "💧 Humidity",
-                f'{inputs["relative_humidity_percent"]}%'
-            )
-
-        with c3:
-            st.metric(
-                "🌱 Soil Moisture",
-                f'{inputs["soil_moisture_percent"]}%'
-            )
-
-        st.caption(f'Crop: {inputs["crop"]}')
-
-        # --------------------------------------------------
-        # SMART RECOMMENDATIONS
-        # --------------------------------------------------
-
-        st.markdown("---")
-        st.subheader("🧠 Smart Recommendations")
+        st.subheader("📈 Farm Health Screening Report")
 
         if result.get("alerts"):
 
@@ -2262,116 +2120,26 @@ elif page == "Farm Monitoring":
                     st.info(message)
 
         else:
-            st.success(
+
+            st.info(
                 "No rule-based alerts were triggered for these inputs. "
                 "This does not guarantee the crop is healthy."
             )
 
         st.caption(
-            "These are preliminary screening heuristics, not "
-            "crop-specific agronomic recommendations."
+            "Rules are preliminary screening heuristics, not crop-specific "
+            "agronomic recommendations."
         )
 
-        # --------------------------------------------------
-        # HISTORICAL CHARTS
-        # --------------------------------------------------
-
-        st.markdown("---")
-        st.subheader("📈 Historical Monitoring Charts")
-
-        history = st.session_state.monitoring_history
-
-        if len(history) >= 2:
-
-            df = pd.DataFrame(history)
-
-            st.caption(
-                "Session history: manually submitted readings only."
-            )
-
-            st.markdown("**Temperature Trend (°C)**")
-            st.line_chart(
-                df.set_index("Time")[["Temperature"]]
-            )
-
-            st.markdown("**Humidity Trend (%)**")
-            st.line_chart(
-                df.set_index("Time")[["Humidity"]]
-            )
-
-            st.markdown("**Soil Moisture Trend (%)**")
-            st.line_chart(
-                df.set_index("Time")[["Soil Moisture"]]
-            )
-
-        else:
-            st.info(
-                "Submit at least two farm assessments to generate "
-                "historical charts."
-            )
-
-        # --------------------------------------------------
-        # SAVE ASSESSMENT
-        # --------------------------------------------------
-
-        if st.button("💾 Save Monitoring Assessment"):
+        if st.button("Save monitoring assessment"):
 
             save_record(
                 "farm_conditions",
-                inputs["crop"],
+                result["inputs"]["crop"],
                 result,
             )
 
-            st.success("Monitoring assessment saved successfully!")
-
-    # --------------------------------------------------
-    # FUTURE IOT INTEGRATION
-    # --------------------------------------------------
-
-    st.markdown("---")
-    st.subheader("📡 Future IoT Integration")
-
-    st.caption(
-        "Planned architecture — hardware integration is not currently active."
-    )
-
-    with st.expander("Explore the proposed IoT architecture"):
-
-        st.markdown("""
-        **Proposed hardware components**
-
-        - ESP32 microcontroller — processes and transmits sensor readings.
-        - DHT22 sensor — measures temperature and humidity.
-        - Capacitive soil moisture sensor — measures soil moisture.
-
-        **Data flow**
-
-        1. Sensors collect environmental readings.
-        2. ESP32 reads and processes sensor data.
-        3. Data is transmitted through Wi-Fi using HTTP or MQTT.
-        4. AgriSense AI receives the readings.
-        5. The monitoring dashboard displays updated values.
-        6. Rule-based screening identifies potential risks.
-        """)
-
-        st.code(
-            "DHT22 + Soil Moisture Sensor\n"
-            "          ↓\n"
-            "        ESP32\n"
-            "          ↓\n"
-            "      Wi-Fi / MQTT\n"
-            "          ↓\n"
-            "   AgriSense AI Backend\n"
-            "          ↓\n"
-            " Monitoring Dashboard + Alerts",
-            language="text"
-        )
-
-        st.info(
-            "This is a proposed future extension. The current application "
-            "uses manual inputs and does not receive live sensor data."
-        )
-
+            st.success("Monitoring assessment saved.")
 
 
 # ==================================================
@@ -2380,8 +2148,7 @@ elif page == "Farm Monitoring":
 
 elif page == "Reports & History":
 
-    import json
-
+    
     st.html("""
     <div style="
         background:linear-gradient(120deg,#102b3a,#142331,#10202b);
@@ -2400,91 +2167,28 @@ elif page == "Reports & History":
         </div>
         <div style="font-size:18px;color:#b8cbd7;margin-top:10px;
                     line-height:1.7;">
-            Review previous plant diagnoses, farm assessments
-            and export your agricultural reports.
+            Access your previous plant diagnoses, farm assessments
+            and downloadable agricultural reports.
         </div>
         <div style="font-size:15px;color:#19d9f5;margin-top:18px;">
-            SAVED RECORDS · ANALYTICS · REPORT EXPORT
+            SAVED RECORDS · REPORT EXPORT · ASSESSMENT HISTORY
         </div>
     </div>
     """)
 
-    records = get_records()
-
-    # --------------------------------------------------
-    # STATISTICS
-    # --------------------------------------------------
-
-    plant_records = [
-        r for r in records
-        if r["record_type"] == "plant_image"
-    ]
-
-    farm_records = [
-        r for r in records
-        if r["record_type"] == "farm_conditions"
-    ]
-
-    st.subheader("📊 Assessment Overview")
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric("Total Assessments", len(records))
-    c2.metric("Plant Diagnoses", len(plant_records))
-    c3.metric("Farm Assessments", len(farm_records))
-
-    st.markdown("---")
-
-    # --------------------------------------------------
-    # DOWNLOAD REPORT
-    # --------------------------------------------------
-
-    st.subheader("📥 Export Reports")
-
-    if records:
-
-        report_data = {
-            "application": "AgriSense AI",
-            "report_type": "Assessment History",
-            "total_assessments": len(records),
-            "plant_diagnoses": len(plant_records),
-            "farm_assessments": len(farm_records),
-            "records": records
-        }
-
-        st.download_button(
-            "⬇️ Download Complete Assessment Report (JSON)",
-            data=json.dumps(
-                report_data,
-                indent=4,
-                default=str
-            ),
-            file_name="AgriSense_Assessment_Report.json",
-            mime="application/json",
-            use_container_width=True
-        )
-
-    else:
-        st.info("Complete and save an assessment to enable report export.")
-
-    st.markdown("---")
-
-    # --------------------------------------------------
-    # ASSESSMENT HISTORY
-    # --------------------------------------------------
-
     st.subheader("📁 Saved Assessment Records")
+    st.caption("Review and export your previous assessments.")
+
+
+    records = get_records()
 
     if not records:
 
         st.info(
-            "No records available yet. Complete and save a Plant Doctor "
-            "or Farm Monitoring assessment to see your history here."
-        )
-
+    "📂 No records available yet. Complete and save a Plant Doctor "
+    "or Farm Monitoring assessment to see your history here."
+)
     else:
-
-        st.caption(f"{len(records)} saved assessment(s) available.")
 
         for index, record in enumerate(records):
 
@@ -2495,15 +2199,16 @@ elif page == "Reports & History":
 
                 payload = record["payload"]
 
-                # PLANT DISEASE RECORDS
-
                 if record["record_type"] == "plant_image":
 
                     st.markdown("### 🌿 Plant Disease Assessment")
 
                     c1, c2, c3 = st.columns(3)
 
-                    c1.metric("Crop", record["crop"])
+                    c1.metric(
+                        "Crop",
+                        record["crop"]
+                    )
 
                     c2.metric(
                         "Predicted Condition",
@@ -2523,6 +2228,7 @@ elif page == "Reports & History":
                     latency = payload.get("latency_ms")
 
                     if latency is not None:
+
                         st.caption(
                             f"Inference time: {latency:.1f} ms"
                         )
@@ -2530,38 +2236,17 @@ elif page == "Reports & History":
                     with st.expander("View detailed assessment data"):
                         st.json(payload)
 
-                # FARM MONITORING RECORDS
-
                 elif record["record_type"] == "farm_conditions":
 
                     st.markdown("### 📊 Farm Condition Assessment")
 
                     inputs = payload.get("inputs", {})
 
-                    c1, c2, c3 = st.columns(3)
-
-                    c1.metric(
-                        "Temperature",
-                        f'{inputs.get("temperature_c", 0)} °C'
-                    )
-
-                    c2.metric(
-                        "Humidity",
-                        f'{inputs.get("relative_humidity_percent", 0)}%'
-                    )
-
-                    c3.metric(
-                        "Soil Moisture",
-                        f'{inputs.get("soil_moisture_percent", 0)}%'
-                    )
-
                     st.write(
                         f'**Crop:** {inputs.get("crop", "Unknown")}'
                     )
 
-                    st.write(
-                        f'**Rainfall:** {inputs.get("recent_rainfall_mm", 0)} mm'
-                    )
+                    st.json(inputs)
 
                     alerts = payload.get("alerts", [])
 
@@ -2571,287 +2256,37 @@ elif page == "Reports & History":
 
                         for alert in alerts:
 
-                            message = (
+                            st.write(
                                 f'**{alert.get("level", "Info")}:** '
                                 f'{alert.get("title", "")} — '
                                 f'{alert.get("detail", "")}'
                             )
 
-                            if alert.get("level") == "High":
-                                st.error(message)
-
-                            elif alert.get("level") == "Moderate":
-                                st.warning(message)
-
-                            else:
-                                st.info(message)
-
                     else:
+
                         st.success(
                             "No rule-based alerts were triggered."
                         )
 
-                    with st.expander("View complete farm data"):
-                        st.json(payload)
-
                 else:
+
                     st.json(payload)
-
-    st.markdown("---")
-
-    st.caption(
-        "AgriSense AI · Assessment records are retrieved from the "
-        "application database. Exported JSON files contain saved "
-        "assessment data."
-    )
-
-# ==================================================
-# REPORTS & HISTORY
-# ==================================================
-
-elif page == "Reports & History":
-
-    import json
-
-    st.html("""
-    <div style="
-        background:linear-gradient(120deg,#102b3a,#142331,#10202b);
-        border:1px solid #245064;
-        border-radius:18px;
-        padding:28px;
-        margin-bottom:22px;
-    ">
-        <div style="color:#19d9f5;font-size:14px;font-weight:700;
-                    letter-spacing:2px;">
-            AGRISENSE AI · DATA CENTER
-        </div>
-        <div style="font-size:36px;font-weight:800;color:#ffffff;
-                    margin-top:10px;">
-            📚 Reports & History
-        </div>
-        <div style="font-size:18px;color:#b8cbd7;margin-top:10px;
-                    line-height:1.7;">
-            Review previous plant diagnoses, farm assessments
-            and export your agricultural reports.
-        </div>
-        <div style="font-size:15px;color:#19d9f5;margin-top:18px;">
-            SAVED RECORDS · ANALYTICS · REPORT EXPORT
-        </div>
-    </div>
-    """)
-
-    records = get_records()
-
-    # --------------------------------------------------
-    # STATISTICS
-    # --------------------------------------------------
-
-    plant_records = [
-        r for r in records
-        if r["record_type"] == "plant_image"
-    ]
-
-    farm_records = [
-        r for r in records
-        if r["record_type"] == "farm_conditions"
-    ]
-
-    st.subheader("📊 Assessment Overview")
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric("Total Assessments", len(records))
-    c2.metric("Plant Diagnoses", len(plant_records))
-    c3.metric("Farm Assessments", len(farm_records))
-
-    st.markdown("---")
-
-    # --------------------------------------------------
-    # DOWNLOAD REPORT
-    # --------------------------------------------------
-
-    st.subheader("📥 Export Reports")
-
-    if records:
-
-        report_data = {
-            "application": "AgriSense AI",
-            "report_type": "Assessment History",
-            "total_assessments": len(records),
-            "plant_diagnoses": len(plant_records),
-            "farm_assessments": len(farm_records),
-            "records": records
-        }
-
-        st.download_button(
-            "⬇️ Download Complete Assessment Report (JSON)",
-            data=json.dumps(
-                report_data,
-                indent=4,
-                default=str
-            ),
-            file_name="AgriSense_Assessment_Report.json",
-            mime="application/json",
-            use_container_width=True
-        )
-
-    else:
-        st.info("Complete and save an assessment to enable report export.")
-
-    st.markdown("---")
-
-    # --------------------------------------------------
-    # ASSESSMENT HISTORY
-    # --------------------------------------------------
-
-    st.subheader("📁 Saved Assessment Records")
-
-    if not records:
-
-        st.info(
-            "No records available yet. Complete and save a Plant Doctor "
-            "or Farm Monitoring assessment to see your history here."
-        )
-
-    else:
-
-        st.caption(f"{len(records)} saved assessment(s) available.")
-
-        for index, record in enumerate(records):
-
-            with st.expander(
-                f'{record["created_at"]} · '
-                f'{record["record_type"]} · {record["crop"]}'
-            ):
-
-                payload = record["payload"]
-
-                # PLANT DISEASE RECORDS
-
-                if record["record_type"] == "plant_image":
-
-                    st.markdown("### 🌿 Plant Disease Assessment")
-
-                    c1, c2, c3 = st.columns(3)
-
-                    c1.metric("Crop", record["crop"])
-
-                    c2.metric(
-                        "Predicted Condition",
-                        payload.get("display_label", "Unknown")
-                    )
-
-                    c3.metric(
-                        "Prediction Score",
-                        f'{payload.get("confidence", 0):.2%}'
-                    )
-
-                    st.caption(
-                        f'Uploaded image: '
-                        f'{payload.get("image_name", "Not recorded")}'
-                    )
-
-                    latency = payload.get("latency_ms")
-
-                    if latency is not None:
-                        st.caption(
-                            f"Inference time: {latency:.1f} ms"
-                        )
-
-                    with st.expander("View detailed assessment data"):
-                        st.json(payload)
-
-                # FARM MONITORING RECORDS
-
-                elif record["record_type"] == "farm_conditions":
-
-                    st.markdown("### 📊 Farm Condition Assessment")
-
-                    inputs = payload.get("inputs", {})
-
-                    c1, c2, c3 = st.columns(3)
-
-                    c1.metric(
-                        "Temperature",
-                        f'{inputs.get("temperature_c", 0)} °C'
-                    )
-
-                    c2.metric(
-                        "Humidity",
-                        f'{inputs.get("relative_humidity_percent", 0)}%'
-                    )
-
-                    c3.metric(
-                        "Soil Moisture",
-                        f'{inputs.get("soil_moisture_percent", 0)}%'
-                    )
-
-                    st.write(
-                        f'**Crop:** {inputs.get("crop", "Unknown")}'
-                    )
-
-                    st.write(
-                        f'**Rainfall:** {inputs.get("recent_rainfall_mm", 0)} mm'
-                    )
-
-                    alerts = payload.get("alerts", [])
-
-                    if alerts:
-
-                        st.markdown("**Screening Alerts**")
-
-                        for alert in alerts:
-
-                            message = (
-                                f'**{alert.get("level", "Info")}:** '
-                                f'{alert.get("title", "")} — '
-                                f'{alert.get("detail", "")}'
-                            )
-
-                            if alert.get("level") == "High":
-                                st.error(message)
-
-                            elif alert.get("level") == "Moderate":
-                                st.warning(message)
-
-                            else:
-                                st.info(message)
-
-                    else:
-                        st.success(
-                            "No rule-based alerts were triggered."
-                        )
-
-                    with st.expander("View complete farm data"):
-                        st.json(payload)
-
-                else:
-                    st.json(payload)
-
-    st.markdown("---")
-
-    st.caption(
-        "AgriSense AI · Assessment records are retrieved from the "
-        "application database. Exported JSON files contain saved "
-        "assessment data."
-    )
-
 
         # EXPORT REPORTS
-    st.subheader("📤 Export Your Reports")
-    st.caption("Download your saved data for future reference.")
-    st.divider()
+        st.subheader("📤 Export Your Reports")
+        st.caption("Download your saved data for future reference.")
+        st.divider()
 
-    report = make_markdown_report(records)
+        report = make_markdown_report(records)
 
-    st.download_button(
-        "Download history report (.md)",
-        report,
-        file_name="agrisense_report.md",
-        mime="text/markdown",
+        st.download_button(
+            "Download history report (.md)",
+            report,
+            file_name="agrisense_report.md",
+            mime="text/markdown",
         )
 
-    st.download_button(
+        st.download_button(
             "Download raw records (.json)",
             json.dumps(
                 records,
@@ -2865,7 +2300,7 @@ elif page == "Reports & History":
 
         # CLEAR HISTORY
 
-    if st.button(
+        if st.button(
             "Delete all saved history",
             type="secondary"
         ):
@@ -2879,202 +2314,173 @@ elif page == "Reports & History":
             st.rerun()
 
 
-
 # ==================================================
 # EDGE AI LAB
 # ==================================================
 
 elif page == "Edge AI Lab":
 
-    import platform
-
+    
     st.html("""
     <div style="
-        background:radial-gradient(circle at 90% 10%,#17465a 0%,transparent 40%),
-        linear-gradient(120deg,#102b3a,#142331,#10202b);
+        background:linear-gradient(120deg,#102b3a,#142331,#10202b);
         border:1px solid #245064;
         border-radius:18px;
-        padding:30px;
+        padding:28px;
         margin-bottom:22px;
     ">
-        <div style="color:#19d9f5;font-size:13px;font-weight:800;
+        <div style="color:#19d9f5;font-size:14px;font-weight:700;
                     letter-spacing:2px;">
             AGRISENSE AI · TECHNOLOGY CENTER
         </div>
-        <div style="font-size:36px;font-weight:850;color:white;
-                    margin-top:14px;">
+        <div style="font-size:36px;font-weight:800;color:#ffffff;
+                    margin-top:10px;">
             ⚙️ Edge AI Lab
         </div>
-        <div style="font-size:16px;color:#b8cbd7;margin-top:12px;
-                    line-height:1.8;">
-            Explore the machine learning architecture, inference
-            pipeline and technologies powering AgriSense AI.
+        <div style="font-size:18px;color:#b8cbd7;margin-top:10px;
+                    line-height:1.7;">
+            Explore the technology powering AgriSense AI,
+            from local plant disease classification to intelligent
+            agricultural assistance.
         </div>
-        <div style="color:#19d9f5;font-size:13px;margin-top:18px;">
+        <div style="font-size:15px;color:#19d9f5;margin-top:18px;">
             MOBILENETV2 · TENSORFLOW · GEMINI AI · SQLITE
         </div>
     </div>
     """)
 
-    # MODEL STATUS
+    st.subheader("🧠 Model Performance & Configuration")
+
 
     status = model_status()
 
-    st.subheader("🧠 AI Model Status")
-
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
 
     c1.metric(
-        "Model Status",
-        "Ready" if status["ready"] else "Offline"
+        "Local Image Model",
+        "Ready" if status["ready"] else "Missing"
     )
 
     c2.metric(
-        "Model Size",
+        "Model File Size",
         f'{status["size_mb"]:.2f} MB'
         if status["ready"] else "—"
     )
 
-    c3.metric("Classification Classes", "15")
+    st.divider()
 
-    if status["ready"]:
-        st.success("Plant disease classification model is loaded and available.")
-    else:
-        st.error("Plant disease model or labels are missing.")
-
-    st.markdown("---")
-
-    # MODEL SPECIFICATIONS
-
-    st.subheader("🔬 Model Specifications")
+    
+    st.subheader("🧠 Model Configuration")
 
     c1, c2 = st.columns(2)
 
     with c1:
         with st.container(border=True):
-            st.markdown("### ⚡ Architecture")
-            st.title("MobileNetV2")
-            st.caption("Lightweight convolutional neural network")
+            st.markdown("### ⚡ Model Architecture")
+            st.markdown("**MobileNetV2**")
+            st.caption("Deep learning image classification")
 
     with c2:
         with st.container(border=True):
-            st.markdown("### 🖼️ Input Resolution")
-            st.title("160 × 160")
-            st.caption("RGB image input")
+            st.markdown("### 🖼️ Input Dimensions")
+            st.markdown("**RGB · 160 × 160 px**")
+            st.caption("Standardized image preprocessing")
 
     c3, c4 = st.columns(2)
 
     with c3:
         with st.container(border=True):
-            st.markdown("### 🌿 Supported Crops")
-            st.title("3 Crops")
+            st.markdown("### 🌿 Supported Classes")
+            st.markdown("**15 Classes**")
             st.caption("Tomato · Potato · Pepper")
 
     with c4:
         with st.container(border=True):
-            st.markdown("### 🧮 Classification")
-            st.title("15 Classes")
-            st.caption("Plant health and disease categories")
+            st.markdown("### 💻 Inference Engine")
+            st.markdown("**Local Device**")
+            st.caption("CPU / GPU as supported")
 
-    st.markdown("---")
+    st.markdown("### 🧠 AI Model Information")
 
-    # INFERENCE PIPELINE
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
 
-    st.subheader("🔄 Image Inference Pipeline")
+        with c1:
+            st.markdown("**Architecture**")
+            st.markdown("MobileNetV2")
+            st.markdown("**Input Resolution**")
+            st.markdown("160 × 160 pixels")
+            st.markdown("**Processing**")
+            st.markdown("On-device")
 
-    pipeline = [
-        ("01", "Image Upload", "User uploads a plant leaf image."),
-        ("02", "Preprocessing", "Image converted to RGB and resized to 160 × 160."),
-        ("03", "Normalization", "MobileNetV2 preprocessing is applied."),
-        ("04", "Model Inference", "TensorFlow model generates class scores."),
-        ("05", "Prediction", "Top predictions and confidence are extracted."),
-        ("06", "Result Display", "Predicted condition and guidance are displayed.")
-    ]
+        with c2:
+            st.markdown("**Classification**")
+            st.markdown("15 Classes")
+            st.markdown("**Supported Crops**")
+            st.markdown("Tomato · Potato · Pepper")
+            st.markdown("**Model Status**")
+            st.markdown("🟢 Ready" if status["ready"] else "🔴 Missing")
 
-    for number, title, description in pipeline:
+    if status["ready"]:
+        st.success("15-class model and labels found.")
+    else:
+        st.error("Model weights or labels are missing.")
 
-        with st.container(border=True):
-            c1, c2 = st.columns([1, 8])
-
-            with c1:
-                st.markdown(f"### `{number}`")
-
-            with c2:
-                st.markdown(f"**{title}**")
-                st.caption(description)
-
-    st.markdown("---")
+    st.divider()
 
     # SYSTEM ARCHITECTURE
 
-    st.subheader("🏗️ Platform Architecture")
+    st.markdown("---")
+    st.subheader("🏗️ System Architecture")
+    st.caption("Four integrated components powering the platform.")
 
-    components = [
-        ("🌿", "Plant Doctor", "MobileNetV2 + TensorFlow"),
-        ("💬", "Farmer Assistant", "Gemini API"),
-        ("📊", "Farm Monitoring", "Rule-based screening"),
-        ("💾", "Data Management", "SQLite database"),
-        ("📄", "Reports & History", "Assessment retrieval and JSON export"),
-        ("📡", "Future IoT", "ESP32 + environmental sensors (planned)")
+    architecture = [
+        ("🌿", "Plant Disease Detection", "MobileNetV2 based image classification."),
+        ("💬", "Farmer Assistant", "Gemini-powered agricultural guidance."),
+        ("📊", "Farm Monitoring", "Rule-based analysis of farm conditions."),
+        ("💾", "Data Management", "SQLite storage and report generation.")
     ]
 
     cols = st.columns(2)
 
-    for i, (emoji, title, description) in enumerate(components):
-
+    for i, (emoji, title, description) in enumerate(architecture):
         with cols[i % 2]:
             with st.container(border=True):
                 st.markdown(f"## {emoji}")
                 st.markdown(f"**{title}**")
                 st.caption(description)
 
-    st.markdown("---")
+    st.divider()
 
     # MODEL EVALUATION
 
+    st.markdown("---")
     st.subheader("📈 Model Evaluation")
+    st.caption("Validation performance of the plant disease classifier.")
 
-    st.metric("Validation Accuracy", "92.17%")
+    st.metric(
+        "Validation Accuracy",
+        "92.17%"
+    )
 
     st.caption(
-        "Reported validation accuracy on the held-out PlantVillage "
-        "validation split. Real-world field accuracy may differ."
+        "Measured on the held-out PlantVillage validation split. "
+        "This is not a guarantee of real-world field accuracy."
     )
 
-    st.warning(
-        "Model confidence is not equivalent to diagnostic accuracy. "
-        "Lighting, image quality and real-world conditions can affect predictions."
+    st.write(
+        "**Important:** Model confidence is not the same as "
+        "diagnostic accuracy. Real-world images may produce "
+        "incorrect predictions."
     )
 
-    st.markdown("---")
-
-    # RUNTIME ENVIRONMENT
-
-    st.subheader("💻 Runtime Environment")
-
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.markdown("**Operating Environment**")
-        st.code(platform.system())
-
-        st.markdown("**Python Version**")
-        st.code(platform.python_version())
-
-    with c2:
-        st.markdown("**Inference Framework**")
-        st.code("TensorFlow / Keras")
-
-        st.markdown("**Web Framework**")
-        st.code("Streamlit")
-
-    st.markdown("---")
+    st.divider()
 
     # LAST INFERENCE
 
-    st.subheader("⚡ Last Measured Inference")
+    st.subheader("Last Measured Inference")
 
-    latest = st.session_state.get("latest_assessment", {})
+    latest = st.session_state.latest_assessment
 
     if (
         latest.get("type") == "plant_image"
@@ -3087,35 +2493,7 @@ elif page == "Edge AI Lab":
         )
 
     else:
-        st.info(
-            "No image inference has been recorded in this session. "
-            "Run Plant Doctor to measure inference latency."
+
+        st.caption(
+            "No image inference has been recorded in this session."
         )
-
-    st.markdown("---")
-
-    # TECHNICAL LIMITATIONS
-
-    st.subheader("🔍 Technical Considerations")
-
-    with st.expander("Model limitations and future improvements"):
-
-        st.markdown("""
-        **Current capabilities**
-        - Local plant image classification.
-        - AI-powered agricultural question answering.
-        - Rule-based farm condition screening.
-        - Database-backed assessment history.
-
-        **Current limitations**
-        - Classification is limited to 15 trained classes.
-        - Real-world image performance can differ from validation performance.
-        - Farm readings are manually entered, not sensor-generated.
-        - IoT hardware integration is planned, not currently active.
-
-        **Future development**
-        - ESP32-based live sensor integration.
-        - Improved real-world plant image generalization.
-        - Persistent historical analytics.
-        - Advanced crop-specific recommendation systems.
-        """)
