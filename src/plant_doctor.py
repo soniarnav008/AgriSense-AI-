@@ -166,7 +166,7 @@ def identify_crop(image):
         "A single leaf image cannot establish a confirmed disease."
     )
 
-    model_name = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+    model_name = "gemini-flash-lite-latest"
     client = genai.Client(api_key=api_key, http_options={"timeout": 9000})
 
     result = client.models.generate_content(
