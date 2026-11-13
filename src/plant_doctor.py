@@ -391,7 +391,7 @@ def identify_crop(image):
             )
         ],
 
-        config={
+    config={
             "response_mime_type": "application/json",
             "max_output_tokens": 350
         }
