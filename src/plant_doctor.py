@@ -1,925 +1,374 @@
 
-"""AgriSense AI - Plant Disease Screening."""
-
-import io
 import json
-import logging
-import os
-import re
 import time
-
-from functools import lru_cache
+import os
+import io
+import re
 from pathlib import Path
-from threading import Lock
+from functools import lru_cache
 
-
-# ======================================================
-# AGRISENSE AI - PLANT DOCTOR
-# MobileNetV2 + TFLite + Gemini 3.8 Flash
-# ======================================================
-
-LOGGER = logging.getLogger(__name__)
+import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 
-TFLITE_PATH = (
-    ROOT / "models" / "plant_disease_model_15class.tflite"
-)
-
-KERAS_PATH = (
-    ROOT / "models" / "plant_disease_model_15class.keras"
-)
-
+TFLITE_PATH = ROOT / "models" / "plant_disease_model_15class.tflite"
+MODEL_PATH = ROOT / "models" / "plant_disease_model_15class.keras"
 LABELS_PATH = ROOT / "models" / "labels_15class.json"
 
-IMAGE_SIZE = (160, 160)
+IMAGE_SIZE = 160
 
 SUPPORTED_CROPS = {"Tomato", "Potato", "Pepper"}
 
-_TFLITE_LOCK = Lock()
-
-
-# ======================================================
-# 1. CROP NAME FROM MODEL LABEL
-# ======================================================
-
-def _crop_from_label(label):
-    match = re.match(
-        r"^(Tomato|Potato|Pepper)(?:\W|_|$)",
-        str(label),
-        re.I
-    )
-
-    return (
-        match.group(1).capitalize()
-        if match
-        else "Unknown"
-    )
-
-
-# ======================================================
-# 2. FORMAT DISEASE NAME
-# ======================================================
-
-def _display_disease(label):
-    return (
-        str(label)
-        .split("___", 1)[-1]
-        .replace("_", " ")
-        .strip()
-    )
-
-
-# ======================================================
-# 3. LOAD LABELS
-# ======================================================
-
-@lru_cache(maxsize=1)
-def _load_labels():
-
-    with LABELS_PATH.open(
-        "r",
-        encoding="utf-8"
-    ) as file:
-        data = json.load(file)
-
-    if isinstance(data, list):
-        labels = data
-
-    elif isinstance(data, dict):
-
-        if all(str(k).isdigit() for k in data):
-            by_index = {
-                int(k): v
-                for k, v in data.items()
-            }
-
-        elif all(type(v) is int for v in data.values()):
-            by_index = {
-                v: k
-                for k, v in data.items()
-            }
-
-        else:
-            raise ValueError(
-                "Unsupported labels JSON format"
-            )
-
-        if sorted(by_index) != list(range(len(by_index))):
-            raise ValueError(
-                "Label indexes must start at 0"
-            )
-
-        labels = [
-            by_index[i]
-            for i in range(len(by_index))
-        ]
-
-    else:
-        raise ValueError(
-            "Labels must be a list or dictionary"
-        )
-
-    if len(labels) != 15:
-        raise ValueError(
-            "Expected exactly 15 class labels"
-        )
-
-    if not all(isinstance(x, str) for x in labels):
-        raise ValueError(
-            "Every label must be a string"
-        )
-
-    if len(set(labels)) != 15:
-        raise ValueError(
-            "Duplicate labels detected"
-        )
-
-    counts = {
-        crop: sum(
-            _crop_from_label(x) == crop
-            for x in labels
-        )
-        for crop in SUPPORTED_CROPS
-    }
-
-    expected = {
-        "Tomato": 10,
-        "Potato": 3,
-        "Pepper": 2
-    }
-
-    if counts != expected:
-        raise ValueError(
-            f"Unexpected crop counts: {counts}"
-        )
-
-    return labels
-
-
-# ======================================================
-# 4. LOAD TFLITE MODEL
-# ======================================================
 
 @lru_cache(maxsize=1)
 def _load_tflite():
-
-    if not TFLITE_PATH.is_file():
+    if not TFLITE_PATH.exists():
         return None
 
-    try:
-        from tflite_runtime.interpreter import Interpreter
+    import tensorflow as tf
 
-    except ImportError:
-        import tensorflow as tf
-        Interpreter = tf.lite.Interpreter
-
-    interpreter = Interpreter(
+    interpreter = tf.lite.Interpreter(
         model_path=str(TFLITE_PATH)
     )
-
     interpreter.allocate_tensors()
-
     return interpreter
 
 
-# ======================================================
-# 5. LOAD KERAS MODEL
-# ======================================================
-
 @lru_cache(maxsize=1)
-def _load_keras():
-
-    if not KERAS_PATH.is_file():
+def _load_model():
+    if not MODEL_PATH.exists():
         return None
 
     import tensorflow as tf
 
     return tf.keras.models.load_model(
-        str(KERAS_PATH),
-        compile=False
+        MODEL_PATH, compile=False
     )
 
 
-# ======================================================
-# 6. MODEL STATUS
-# ======================================================
+def _load_labels():
+    if not LABELS_PATH.exists():
+        return None
 
-def model_status():
+    with open(LABELS_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    has_tflite = TFLITE_PATH.is_file()
-    has_keras = KERAS_PATH.is_file()
 
-    active = (
-        TFLITE_PATH
-        if has_tflite
-        else KERAS_PATH
-    )
+def _get_crop(label):
+    label = str(label)
 
-    try:
-        labels_ok = len(_load_labels()) == 15
-        labels_error = ""
+    if label.startswith("Tomato"):
+        return "Tomato"
+    elif label.startswith("Potato"):
+        return "Potato"
+    elif label.startswith("Pepper"):
+        return "Pepper"
 
-    except Exception as exc:
-        labels_ok = False
-        labels_error = str(exc)
+    return "Unknown"
 
-    return {
-        "ready": (
-            (has_tflite or has_keras)
-            and labels_ok
-        ),
 
-        "size_mb": (
-            active.stat().st_size / (1024 ** 2)
-            if active.is_file()
-            else 0.0
-        ),
+def _format_disease(label):
+    label = label.replace("___", "_").replace("__", "_")
+    label = label.replace("_", " ")
 
-        "model_path": str(active),
-
-        "labels_path": str(LABELS_PATH),
-
-        "inference_engine": (
-            "TFLite"
-            if has_tflite
-            else "Keras"
-            if has_keras
-            else "Unavailable"
-        ),
-
-        "labels_error": labels_error
+    replacements = {
+        "Pepper bell Bacterial spot": "Bacterial Spot",
+        "Pepper bell healthy": "Healthy",
+        "Potato Early blight": "Early Blight",
+        "Potato Late blight": "Late Blight",
+        "Potato healthy": "Healthy",
+        "Tomato Bacterial spot": "Bacterial Spot",
+        "Tomato Early blight": "Early Blight",
+        "Tomato healthy": "Healthy",
+        "Tomato Late blight": "Late Blight",
+        "Tomato Leaf Mold": "Leaf Mold",
+        "Tomato Septoria leaf spot": "Septoria Leaf Spot",
+        "Tomato Spider mites Two spotted spider mite": "Spider Mites",
+        "Tomato Target Spot": "Target Spot",
+        "Tomato Tomato mosaic virus": "Mosaic Virus",
+        "Tomato Tomato YellowLeaf Curl Virus": "Yellow Leaf Curl Virus",
     }
 
+    return replacements.get(label, label)
 
-# ======================================================
-# 7. NORMALIZE CROP NAMES
-# ======================================================
-
-def _canonical_crop(name):
-
-    text = re.sub(
-        r"\s+",
-        " ",
-        re.sub(
-            r"[^a-z ]",
-            " ",
-            str(name or "").lower()
-        )
-    ).strip()
-
-    names = {
-        "tomato": "Tomato",
-        "tomato plant": "Tomato",
-        "tomato leaf": "Tomato",
-
-        "potato": "Potato",
-        "potato plant": "Potato",
-        "potato leaf": "Potato",
-
-        "pepper": "Pepper",
-        "pepper plant": "Pepper",
-        "pepper leaf": "Pepper",
-
-        "bell pepper": "Pepper",
-        "bell pepper plant": "Pepper",
-        "capsicum": "Pepper",
-
-        "apple": "Apple",
-        "apple tree": "Apple",
-        "apple leaf": "Apple",
-
-        "mango": "Mango",
-        "mango tree": "Mango",
-        "mango leaf": "Mango",
-
-        "unknown": "Unknown",
-        "unidentified": "Unknown",
-        "": "Unknown"
-    }
-
-    return names.get(
-        text,
-        text.title()
-    )
-
-
-# ======================================================
-# 8. GEMINI CROP IDENTIFICATION
-# ======================================================
 
 def identify_crop(image):
+    """
+    Identify the crop using Gemini Vision.
+    This does NOT diagnose plant disease.
+    """
 
-    key = os.getenv(
-        "GEMINI_API_KEY",
-        ""
-    ).strip()
+    api_key = os.getenv("GEMINI_API_KEY")
 
-    if not key:
-        raise RuntimeError(
-            "GEMINI_API_KEY is missing"
-        )
+    if not api_key:
+        raise RuntimeError("GEMINI_API_KEY is not configured.")
 
-    from PIL import ImageOps
     from google import genai
     from google.genai import types
 
-    buffer = io.BytesIO()
+    client = genai.Client(api_key=api_key)
 
-    ImageOps.exif_transpose(
-        image
-    ).convert("RGB").save(
-        buffer,
-        format="JPEG",
-        quality=90
+    image_buffer = io.BytesIO()
+    image.convert("RGB").save(image_buffer, format="JPEG")
+
+    image_part = types.Part.from_bytes(
+        data=image_buffer.getvalue(),
+        mime_type="image/jpeg"
     )
 
-    prompt = (
-        "Identify the plant or crop in this image. "
-        "Do NOT diagnose disease. "
-        "Do not assume Tomato, Potato or Pepper. "
-        "The image may contain Apple, Mango or "
-        "another unsupported crop. "
-        "If the crop cannot be identified, "
-        "return Unknown. "
-        "Return only a JSON object with fields: "
-        "is_plant (boolean), crop (short common name), "
-        "confidence (number from 0 to 1), "
-        "reason (short text). "
-        "Confidence is an uncalibrated estimate."
-    )
+    prompt = """
+    You are a plant and crop identification assistant.
 
-    client = genai.Client(
-        api_key=key
-    )
+    Examine the uploaded image carefully.
 
-    # Updated model from Render error.
+    Identify the most likely crop or plant visible.
+
+    You may identify crops worldwide, including:
+    Apple, Rice, Wheat, Maize, Cotton, Grape, Potato,
+    Tomato, Pepper, Mango, Banana, Citrus, Soybean,
+    and other plants.
+
+    Rules:
+    1. Do not assume the image belongs to Tomato, Potato or Pepper.
+    2. Do not identify a crop if there is insufficient visual evidence.
+    3. If the image does not contain a recognizable plant, say Unknown.
+    4. Identify the plant, not its disease.
+    5. Return only valid JSON.
+
+    Required JSON format:
+
+    {
+      "is_plant": true,
+      "crop": "Apple",
+      "confidence": 0.90,
+      "reason": "Visible leaf characteristics suggest an apple plant."
+    }
+
+    Confidence is an approximate model estimate, not a calibrated probability.
+    """
+
     response = client.models.generate_content(
-        model="gemini-3.8-flash",
-
-        contents=[
-            prompt,
-
-            types.Part.from_bytes(
-                data=buffer.getvalue(),
-                mime_type="image/jpeg"
-            )
-        ],
-
+        model="gemini-flash-lite-latest",
+        contents=[prompt, image_part],
         config={
-            "response_mime_type": "application/json",
-            "max_output_tokens": 400
+            "max_output_tokens": 300,
+            "response_mime_type": "application/json"
         }
     )
 
-    raw = getattr(
-        response,
-        "text",
-        None
-    )
+    if not response.text:
+        raise RuntimeError("Gemini returned an empty crop identification.")
 
-    if not raw:
-        raise RuntimeError(
-            "Gemini returned an empty response"
-        )
+    raw = response.text.strip()
 
-    raw = re.sub(
-        r"^```(?:json)?\s*|\s*```$",
-        "",
-        raw.strip(),
-        flags=re.I
-    )
+    # Remove accidental Markdown code fences.
+    raw = re.sub(r"^```(?:json)?\s*", "", raw)
+    raw = re.sub(r"\s*```$", "", raw)
 
     result = json.loads(raw)
 
-    if not isinstance(result, dict):
-        raise ValueError(
-            "Unexpected Gemini JSON response"
-        )
+    crop = str(result.get("crop", "Unknown")).strip()
+    is_plant = bool(result.get("is_plant", False))
 
     try:
-        confidence = float(
-            result.get("confidence", 0)
-        )
-
+        confidence = float(result.get("confidence", 0))
     except (ValueError, TypeError):
-        confidence = 0.0
-
-    if not (0 <= confidence <= 1):
-        confidence = 0.0
+        confidence = 0
 
     return {
-        "is_plant": (
-            result.get("is_plant") is True
-        ),
-
-        "crop": _canonical_crop(
-            result.get("crop")
-        ),
-
-        "confidence": confidence,
-
-        "reason": str(
-            result.get("reason", "")
-        )
+        "is_plant": is_plant,
+        "crop": crop,
+        "confidence": max(0.0, min(1.0, confidence)),
+        "reason": str(result.get("reason", ""))
     }
 
 
-# ======================================================
-# 9. IMAGE PREPROCESSING
-# ======================================================
+def model_status():
+    tflite_exists = TFLITE_PATH.exists()
+    keras_exists = MODEL_PATH.exists()
 
-def _prepare_image(image):
+    active_path = TFLITE_PATH if tflite_exists else MODEL_PATH
 
-    import numpy as np
-    from PIL import ImageOps
-
-    image = ImageOps.exif_transpose(
-        image
+    size_mb = (
+        active_path.stat().st_size / (1024 * 1024)
+        if active_path.exists() else 0
     )
-
-    image = image.convert("RGB")
-
-    image = image.resize(
-        IMAGE_SIZE
-    )
-
-    pixels = np.asarray(
-        image,
-        dtype=np.float32
-    )
-
-    # MobileNetV2 preprocessing.
-    # Must match the original training pipeline.
-    pixels = pixels / 127.5 - 1.0
-
-    batch = np.expand_dims(
-        pixels,
-        axis=0
-    )
-
-    return batch
-
-
-# ======================================================
-# 10. TFLITE INFERENCE
-# ======================================================
-
-def _run_tflite(batch):
-
-    import numpy as np
-
-    interpreter = _load_tflite()
-
-    if interpreter is None:
-        raise FileNotFoundError(
-            "TFLite model missing"
-        )
-
-    with _TFLITE_LOCK:
-
-        inp = interpreter.get_input_details()[0]
-        out = interpreter.get_output_details()[0]
-
-        expected = tuple(
-            int(x)
-            for x in inp["shape"]
-        )
-
-        if expected != tuple(batch.shape):
-            raise ValueError(
-                f"Expected {expected}, got {batch.shape}"
-            )
-
-        dtype = np.dtype(inp["dtype"])
-
-        if np.issubdtype(dtype, np.integer):
-
-            scale, zero = inp["quantization"]
-
-            if scale <= 0:
-                raise ValueError(
-                    "Invalid input quantization"
-                )
-
-            limits = np.iinfo(dtype)
-
-            data = np.clip(
-                np.rint(batch / scale + zero),
-                limits.min,
-                limits.max
-            ).astype(dtype)
-
-        else:
-            data = batch.astype(dtype)
-
-        interpreter.set_tensor(
-            inp["index"],
-            data
-        )
-
-        interpreter.invoke()
-
-        result = interpreter.get_tensor(
-            out["index"]
-        )
-
-        output_dtype = np.dtype(
-            out["dtype"]
-        )
-
-        if np.issubdtype(
-            output_dtype,
-            np.integer
-        ):
-
-            scale, zero = out["quantization"]
-
-            if scale <= 0:
-                raise ValueError(
-                    "Invalid output quantization"
-                )
-
-            result = (
-                result.astype(np.float32) - zero
-            ) * scale
-
-    return result
-
-
-# ======================================================
-# 11. KERAS INFERENCE
-# ======================================================
-
-def _run_keras(batch):
-
-    model = _load_keras()
-
-    if model is None:
-        raise FileNotFoundError(
-            "Keras model missing"
-        )
-
-    return model.predict(
-        batch,
-        verbose=0
-    )
-
-
-# ======================================================
-# 12. PROCESS MODEL SCORES
-# ======================================================
-
-def _format_scores(raw_output):
-
-    import numpy as np
-
-    values = np.asarray(
-        raw_output,
-        dtype=np.float64
-    ).reshape(-1)
-
-    if (
-        len(values) != 15
-        or not np.all(np.isfinite(values))
-    ):
-        raise ValueError(
-            "Expected 15 valid model scores"
-        )
-
-    if (
-        np.all(values >= 0)
-        and np.all(values <= 1)
-        and np.isclose(
-            values.sum(),
-            1.0,
-            atol=1e-3
-        )
-    ):
-        return (
-            values,
-            "model output (not calibrated)"
-        )
-
-    # Assumes unnormalized outputs are logits.
-    # Verify this against training code.
-    exp = np.exp(
-        values - np.max(values)
-    )
-
-    scores = exp / exp.sum()
-
-    return (
-        scores,
-        "softmax-style score (not calibrated)"
-    )
-
-
-# ======================================================
-# 13. BLOCK INVALID RESULTS
-# ======================================================
-
-def _block(
-    status,
-    message,
-    started,
-    **details
-):
 
     return {
-        "status": status,
-        "error": message,
-
-        "latency_ms": (
-            time.perf_counter() - started
-        ) * 1000,
-
-        **details
+        "ready": (tflite_exists or keras_exists)
+                 and LABELS_PATH.exists(),
+        "size_mb": size_mb,
+        "model_path": str(active_path),
+        "labels_path": str(LABELS_PATH),
+        "inference_engine": "TFLite" if tflite_exists else "Keras"
     }
 
 
-# ======================================================
-# 14. MAIN PLANT PREDICTION
-# ======================================================
-
-def predict_leaf_disease(
-    image,
-    verify_with_gemini=True
-):
-
-    started = time.perf_counter()
+def predict_leaf_disease(image):
+    start = time.perf_counter()
 
     try:
-        crop_check = None
+        # STEP 1: Identify the crop using Gemini Vision.
+        crop_result = identify_crop(image)
 
-        # STEP 1: VERIFY CROP ONLINE
-        if verify_with_gemini:
+        identified_crop = crop_result["crop"]
+        crop_confidence = crop_result["confidence"]
 
-            try:
-                crop_check = identify_crop(image)
+        if not crop_result["is_plant"]:
+            return {
+                "error": "No recognizable plant was detected. "
+                         "Please upload a clear plant or leaf image."
+            }
 
-            except Exception:
-                LOGGER.exception(
-                    "Gemini crop verification failed"
-                )
+        if identified_crop.lower() == "unknown" or crop_confidence < 0.60:
+            return {
+                "status": "uncertain",
+                "crop": "Unknown",
+                "crop_confidence": crop_confidence,
+                "message": "Crop identification is uncertain. "
+                           "Please upload a clearer image."
+            }
 
-                return _block(
-                    "verification_unavailable",
+        # STEP 2: Unsupported crop.
+        if identified_crop not in SUPPORTED_CROPS:
+            return {
+                "status": "crop_identified",
+                "crop": identified_crop,
+                "crop_confidence": crop_confidence,
+                "message": (
+                    f"Identified crop: {identified_crop}. "
+                    "Disease detection for this crop is not "
+                    "currently supported by our trained model."
+                ),
+                "inference_engine": "Gemini Vision",
+                "latency_ms": (
+                    time.perf_counter() - start
+                ) * 1000
+            }
 
-                    "Online crop verification failed. "
-                    "Check Render Logs and Gemini API. "
-                    "No disease diagnosis was shown.",
+        # STEP 3: Run existing disease model for supported crops.
+        import tensorflow as tf
 
-                    started
-                )
-
-            if not crop_check["is_plant"]:
-                return _block(
-                    "no_plant",
-                    "No recognizable plant was identified.",
-                    started
-                )
-
-            if (
-                crop_check["crop"] == "Unknown"
-                or crop_check["confidence"] < 0.60
-            ):
-                return _block(
-                    "uncertain_crop",
-
-                    "Crop could not be identified reliably.",
-
-                    started,
-
-                    crop=crop_check["crop"],
-
-                    crop_confidence=(
-                        crop_check["confidence"]
-                    )
-                )
-
-            if crop_check["crop"] not in SUPPORTED_CROPS:
-
-                return _block(
-                    "unsupported_crop",
-
-                    f"{crop_check['crop']} is not supported. "
-                    "Only Tomato, Potato and Pepper "
-                    "have disease classes in this model. "
-                    "No diagnosis was shown.",
-
-                    started,
-
-                    crop=crop_check["crop"],
-
-                    crop_confidence=(
-                        crop_check["confidence"]
-                    )
-                )
-
-        # STEP 2: LOAD LABELS
         labels = _load_labels()
 
-        # STEP 3: PREPROCESS IMAGE
-        batch = _prepare_image(image)
+        if labels is None:
+            return {"error": "15-class model labels are missing."}
 
-        fallback_note = None
-
-        # STEP 4: TFLITE OR KERAS
-        if TFLITE_PATH.is_file():
-
-            try:
-                output = _run_tflite(batch)
-                engine = "TFLite"
-
-            except Exception as exc:
-                LOGGER.exception(
-                    "TFLite inference failed"
-                )
-
-                if not KERAS_PATH.is_file():
-                    return _block(
-                        "inference_failed",
-
-                        "TFLite inference failed and "
-                        "Keras fallback is missing.",
-
-                        started
-                    )
-
-                output = _run_keras(batch)
-                engine = "Keras"
-
-                fallback_note = (
-                    "TFLite failed: "
-                    f"{type(exc).__name__}; "
-                    "used Keras fallback."
-                )
-
-        else:
-            output = _run_keras(batch)
-            engine = "Keras"
-
-        # STEP 5: TOP PREDICTIONS
-        scores, score_type = _format_scores(
-            output
+        image = image.convert("RGB").resize(
+            (IMAGE_SIZE, IMAGE_SIZE)
         )
 
-        import numpy as np
+        array = np.asarray(image, dtype=np.float32)
 
-        indices = np.argsort(
-            scores
-        )[::-1][:3]
+        array = tf.keras.applications.mobilenet_v2.preprocess_input(
+            array
+        )
+
+        batch = np.expand_dims(array, axis=0)
+
+        engine = "TFLite"
+
+        try:
+            interpreter = _load_tflite()
+
+            if interpreter is None:
+                raise RuntimeError("TFLite model unavailable")
+
+            input_details = interpreter.get_input_details()
+            output_details = interpreter.get_output_details()
+
+            interpreter.set_tensor(
+                input_details[0]["index"], batch
+            )
+
+            interpreter.invoke()
+
+            output = interpreter.get_tensor(
+                output_details[0]["index"]
+            )
+
+        except Exception as tflite_error:
+            print("TFLite unavailable, using Keras:", tflite_error)
+
+            engine = "Keras"
+            model = _load_model()
+
+            if model is None:
+                return {
+                    "error": "Both TFLite and Keras models "
+                             "are unavailable."
+                }
+
+            output = model.predict(batch, verbose=0)
+
+        scores = np.asarray(output).reshape(-1)
+
+        if len(scores) != len(labels):
+            return {"error": "Model and labels do not match."}
+
+        order = np.argsort(scores)[::-1][:3]
 
         top = []
 
-        for i in indices:
-            i = int(i)
-            label = labels[i]
+        for i in order:
+            raw_label = str(labels[int(i)])
 
             top.append({
-                "class_index": i,
-
-                "label": label,
-
-                "display_label": (
-                    _display_disease(label)
-                ),
-
-                "confidence": float(
-                    scores[i]
-                )
+                "label": raw_label,
+                "display_label": _format_disease(raw_label),
+                "confidence": float(scores[int(i)])
             })
 
-        predicted_crop = _crop_from_label(
-            top[0]["label"]
-        )
+        predicted_label = top[0]["label"]
+        predicted_crop = _get_crop(predicted_label)
 
-        if predicted_crop == "Unknown":
-            raise ValueError(
-                "Unexpected crop label"
-            )
-
-        # STEP 6: COMPARE CNN WITH GEMINI
-        if (
-            crop_check
-            and predicted_crop != crop_check["crop"]
-        ):
-            return _block(
-                "crop_mismatch",
-
-                f"Crop mismatch: Gemini identified "
-                f"{crop_check['crop']}, but CNN "
-                f"predicted {predicted_crop}. "
-                "Diagnosis withheld.",
-
-                started,
-
-                crop=crop_check["crop"],
-
-                classifier_crop=predicted_crop,
-
-                crop_confidence=(
-                    crop_check["confidence"]
+        # STEP 4: Check whether both systems agree on crop.
+        if predicted_crop != identified_crop:
+            return {
+                "status": "crop_mismatch",
+                "crop": identified_crop,
+                "crop_confidence": crop_confidence,
+                "message": (
+                    "Crop identification and disease classifier "
+                    "disagree. No disease prediction is being shown."
                 ),
+                "classifier_crop": predicted_crop,
+                "inference_engine": engine,
+                "latency_ms": (
+                    time.perf_counter() - start
+                ) * 1000
+            }
 
-                top_predictions=top,
-
-                inference_engine=engine
-            )
-
-        # STEP 7: UNCERTAINTY
         confidence = top[0]["confidence"]
 
-        margin = (
-            confidence -
-            top[1]["confidence"]
-        )
-
-        uncertain = (
-            confidence < 0.70
-            or margin < 0.10
-        )
-
-        offline = not verify_with_gemini
-
-        if offline:
-            message = (
-                "Offline model output. Unsupported "
-                "crops such as Apple and Mango "
-                "may be classified incorrectly."
-            )
-
-        elif uncertain:
-            message = (
-                "Model prediction is uncertain. "
-                "Confirm symptoms with an expert."
-            )
-
-        else:
-            message = (
-                "Both systems agree on crop. "
-                "However, disease classification "
-                "is not guaranteed to be correct."
-            )
-
-        # STEP 8: FINAL RESULT
         return {
             "status": "success",
-
-            "label": top[0]["label"],
-
-            "display_label": (
-                top[0]["display_label"]
-            ),
-
-            "crop": predicted_crop,
-
-            "crop_confidence": (
-                crop_check["confidence"]
-                if crop_check
-                else None
-            ),
-
+            "label": predicted_label,
+            "display_label": top[0]["display_label"],
+            "crop": identified_crop,
+            "crop_confidence": crop_confidence,
             "confidence": confidence,
-
             "top_predictions": top,
-
-            "low_confidence": (
-                uncertain or offline
+            "low_confidence": confidence < 0.70,
+            "confidence_message": (
+                "Low confidence! Please upload a clearer leaf image "
+                "or consult an agriculture expert."
+                if confidence < 0.70
+                else "The model has relatively high confidence "
+                     "in this prediction."
             ),
-
-            "confidence_message": message,
-
-            "crop_verification": (
-                "match"
-                if crop_check
-                else "not_requested"
-            ),
-
             "inference_engine": engine,
-
-            "fallback_note": fallback_note,
-
-            "score_type": score_type,
-
-            "top_two_margin": float(margin),
-
             "latency_ms": (
-                time.perf_counter() - started
+                time.perf_counter() - start
             ) * 1000
         }
 
-    except Exception:
-        LOGGER.exception(
-            "Plant Doctor prediction failed"
-        )
+    except Exception as exc:
+        print("Plant Doctor error:", repr(exc))
 
-        return _block(
-            "error",
-
-            "Plant Doctor failed. "
-            "Check model files and Render Logs.",
-
-            started
-        )
+        return {
+            "error": (
+                f"Plant identification failed: {type(exc).__name__}. "
+                "Please try again. Check the terminal for details."
+            )
+        }
