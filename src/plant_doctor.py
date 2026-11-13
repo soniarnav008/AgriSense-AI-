@@ -363,8 +363,24 @@ def identify_crop(image):
         api_key=key
     )
 
+    
     response = client.models.generate_content(
-        model="gemini-flash-lite-latest",
+    model="gemini-2.5-flash",
+
+    contents=[
+        prompt,
+        types.Part.from_bytes(
+            data=buffer.getvalue(),
+            mime_type="image/jpeg"
+        )
+    ],
+
+    config={
+        "response_mime_type": "application/json",
+        "max_output_tokens": 350
+    }
+)
+
 
         contents=[
             prompt,
