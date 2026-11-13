@@ -382,7 +382,7 @@ def identify_crop(image):
 )
 
 
-        contents=[
+    contents=[
             prompt,
 
             types.Part.from_bytes(
