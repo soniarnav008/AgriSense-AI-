@@ -94,8 +94,8 @@ def _format_disease(label):
 
 def identify_crop(image):
     """
-    Identify the crop using Gemini Vision.
-    This does NOT diagnose plant disease.
+    Legacy Gemini Vision helper.
+    Not called by predict_leaf_disease().
     """
 
     api_key = os.getenv("GEMINI_API_KEY")
@@ -161,7 +161,6 @@ def identify_crop(image):
 
     raw = response.text.strip()
 
-    # Remove accidental Markdown code fences.
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
 
@@ -204,24 +203,108 @@ def model_status():
     }
 
 
+# ==================================================
+# NEW: REJECT OBVIOUS TEXT/DOCUMENT IMAGES
+# ==================================================
+
+def _looks_like_document_or_graphic(image):
+    """
+    Conservative offline filter for obvious text,
+    documents, screenshots and simple graphics.
+
+    This is not a trained plant detector.
+    """
+
+    small = image.convert("RGB").resize((224, 224))
+    pixels = np.asarray(small, dtype=np.uint8)
+
+    top = pixels.max(axis=2).astype(np.int16)
+    bottom = pixels.min(axis=2).astype(np.int16)
+
+    colored_fraction = np.mean(
+        (top - bottom >= 25) & (top >= 50)
+    )
+
+    # Mostly grayscale documents or text images
+    if colored_fraction < 0.06:
+        return True
+
+    # Screenshots often contain large flat regions
+    horizontal_change = np.mean(
+        np.abs(
+            pixels[:, 1:, :].astype(np.int16)
+            - pixels[:, :-1, :].astype(np.int16)
+        ),
+        axis=2,
+    )
+
+    flat_neighbor_fraction = np.mean(
+        horizontal_change < 2
+    )
+
+    if flat_neighbor_fraction > 0.86 and colored_fraction < 0.45:
+        return True
+
+    if flat_neighbor_fraction > 0.95:
+        return True
+
+    # Detect graphics dominated by one flat color
+    q = (pixels // 32).astype(np.int32)
+
+    bins = (
+        q[:, :, 0] * 64
+        + q[:, :, 1] * 8
+        + q[:, :, 2]
+    )
+
+    largest_color_fraction = (
+        np.bincount(
+            bins.ravel(),
+            minlength=512
+        ).max() / bins.size
+    )
+
+    return largest_color_fraction > 0.88
+
+
+# ==================================================
+# PLANT DISEASE PREDICTION
+# ==================================================
+
 def predict_leaf_disease(image):
     start = time.perf_counter()
 
     try:
-        # Run the trained 15-class CNN directly; no Gemini API call.
-        # Predictions are valid only for Tomato, Potato, and Pepper.
+
+        # Reject obvious non-leaf document images
+        if _looks_like_document_or_graphic(image):
+            return {
+                "error": (
+                    "This looks like text, a document, or a graphic "
+                    "rather than a color leaf photograph. "
+                    "Please upload a clear photo of a Tomato, "
+                    "Potato, or Pepper leaf."
+                )
+            }
+
+        # Direct CNN inference: no Gemini API call
         import tensorflow as tf
 
         labels = _load_labels()
 
         if labels is None:
-            return {"error": "15-class model labels are missing."}
+            return {
+                "error": "15-class model labels are missing."
+            }
 
         image = image.convert("RGB").resize(
             (IMAGE_SIZE, IMAGE_SIZE)
         )
 
-        array = np.asarray(image, dtype=np.float32)
+        array = np.asarray(
+            image,
+            dtype=np.float32
+        )
 
         array = tf.keras.applications.mobilenet_v2.preprocess_input(
             array
@@ -235,13 +318,16 @@ def predict_leaf_disease(image):
             interpreter = _load_tflite()
 
             if interpreter is None:
-                raise RuntimeError("TFLite model unavailable")
+                raise RuntimeError(
+                    "TFLite model unavailable"
+                )
 
             input_details = interpreter.get_input_details()
             output_details = interpreter.get_output_details()
 
             interpreter.set_tensor(
-                input_details[0]["index"], batch
+                input_details[0]["index"],
+                batch
             )
 
             interpreter.invoke()
@@ -251,29 +337,42 @@ def predict_leaf_disease(image):
             )
 
         except Exception as tflite_error:
-            print("TFLite unavailable, using Keras:", tflite_error)
+
+            print(
+                "TFLite unavailable, using Keras:",
+                tflite_error
+            )
 
             engine = "Keras"
+
             model = _load_model()
 
             if model is None:
                 return {
-                    "error": "Both TFLite and Keras models "
-                             "are unavailable."
+                    "error": (
+                        "Both TFLite and Keras models "
+                        "are unavailable."
+                    )
                 }
 
-            output = model.predict(batch, verbose=0)
+            output = model.predict(
+                batch,
+                verbose=0
+            )
 
         scores = np.asarray(output).reshape(-1)
 
         if len(scores) != len(labels):
-            return {"error": "Model and labels do not match."}
+            return {
+                "error": "Model and labels do not match."
+            }
 
         order = np.argsort(scores)[::-1][:3]
 
         top = []
 
         for i in order:
+
             raw_label = str(labels[int(i)])
 
             top.append({
@@ -283,7 +382,10 @@ def predict_leaf_disease(image):
             })
 
         predicted_label = top[0]["label"]
-        predicted_crop = _get_crop(predicted_label)
+
+        predicted_crop = _get_crop(
+            predicted_label
+        )
 
         confidence = top[0]["confidence"]
 
@@ -301,9 +403,10 @@ def predict_leaf_disease(image):
                 "This model supports only Tomato, Potato and Pepper; "
                 "other plants can be incorrectly classified."
                 if confidence < 0.70
-                else "CNN prediction for the 15 trained classes only "
-                     "(Tomato, Potato, Pepper). Other plants may be "
-                     "incorrectly classified even with a high score."
+                else
+                "CNN prediction for the 15 trained classes only "
+                "(Tomato, Potato, Pepper). Other plants may be "
+                "incorrectly classified even with a high score."
             ),
             "inference_engine": engine,
             "latency_ms": (
@@ -312,7 +415,11 @@ def predict_leaf_disease(image):
         }
 
     except Exception as exc:
-        print("Plant Doctor error:", repr(exc))
+
+        print(
+            "Plant Doctor error:",
+            repr(exc)
+        )
 
         return {
             "error": (
