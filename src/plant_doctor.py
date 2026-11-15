@@ -208,45 +208,8 @@ def predict_leaf_disease(image):
     start = time.perf_counter()
 
     try:
-        # STEP 1: Identify the crop using Gemini Vision.
-        crop_result = identify_crop(image)
-
-        identified_crop = crop_result["crop"]
-        crop_confidence = crop_result["confidence"]
-
-        if not crop_result["is_plant"]:
-            return {
-                "error": "No recognizable plant was detected. "
-                         "Please upload a clear plant or leaf image."
-            }
-
-        if identified_crop.lower() == "unknown" or crop_confidence < 0.60:
-            return {
-                "status": "uncertain",
-                "crop": "Unknown",
-                "crop_confidence": crop_confidence,
-                "message": "Crop identification is uncertain. "
-                           "Please upload a clearer image."
-            }
-
-        # STEP 2: Unsupported crop.
-        if identified_crop not in SUPPORTED_CROPS:
-            return {
-                "status": "crop_identified",
-                "crop": identified_crop,
-                "crop_confidence": crop_confidence,
-                "message": (
-                    f"Identified crop: {identified_crop}. "
-                    "Disease detection for this crop is not "
-                    "currently supported by our trained model."
-                ),
-                "inference_engine": "Gemini Vision",
-                "latency_ms": (
-                    time.perf_counter() - start
-                ) * 1000
-            }
-
-        # STEP 3: Run existing disease model for supported crops.
+        # Run the trained 15-class CNN directly; no Gemini API call.
+        # Predictions are valid only for Tomato, Potato, and Pepper.
         import tensorflow as tf
 
         labels = _load_labels()
@@ -322,40 +285,25 @@ def predict_leaf_disease(image):
         predicted_label = top[0]["label"]
         predicted_crop = _get_crop(predicted_label)
 
-        # STEP 4: Check whether both systems agree on crop.
-        if predicted_crop != identified_crop:
-            return {
-                "status": "crop_mismatch",
-                "crop": identified_crop,
-                "crop_confidence": crop_confidence,
-                "message": (
-                    "Crop identification and disease classifier "
-                    "disagree. No disease prediction is being shown."
-                ),
-                "classifier_crop": predicted_crop,
-                "inference_engine": engine,
-                "latency_ms": (
-                    time.perf_counter() - start
-                ) * 1000
-            }
-
         confidence = top[0]["confidence"]
 
         return {
             "status": "success",
             "label": predicted_label,
             "display_label": top[0]["display_label"],
-            "crop": identified_crop,
-            "crop_confidence": crop_confidence,
+            "crop": predicted_crop,
+            "crop_confidence": confidence,
             "confidence": confidence,
             "top_predictions": top,
             "low_confidence": confidence < 0.70,
             "confidence_message": (
-                "Low confidence! Please upload a clearer leaf image "
-                "or consult an agriculture expert."
+                "Low model score. Please upload a clearer leaf image. "
+                "This model supports only Tomato, Potato and Pepper; "
+                "other plants can be incorrectly classified."
                 if confidence < 0.70
-                else "The model has relatively high confidence "
-                     "in this prediction."
+                else "CNN prediction for the 15 trained classes only "
+                     "(Tomato, Potato, Pepper). Other plants may be "
+                     "incorrectly classified even with a high score."
             ),
             "inference_engine": engine,
             "latency_ms": (
@@ -368,7 +316,7 @@ def predict_leaf_disease(image):
 
         return {
             "error": (
-                f"Plant identification failed: {type(exc).__name__}. "
+                f"Plant model inference failed: {type(exc).__name__}. "
                 "Please try again. Check the terminal for details."
             )
         }
