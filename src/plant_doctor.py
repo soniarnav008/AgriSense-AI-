@@ -4,6 +4,8 @@ import time
 import os
 import io
 import re
+import logging
+import threading
 from pathlib import Path
 from functools import lru_cache
 
@@ -18,6 +20,8 @@ LABELS_PATH = ROOT / "models" / "labels_15class.json"
 IMAGE_SIZE = 160
 
 SUPPORTED_CROPS = {"Tomato", "Potato", "Pepper"}
+_INFERENCE_LOCK = threading.Lock()
+_LOGGER = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=1)
@@ -148,7 +152,7 @@ def identify_crop(image):
     """
 
     response = client.models.generate_content(
-        model="gemini-flash-lite-latest",
+        model=os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip(),
         contents=[prompt, image_part],
         config={
             "max_output_tokens": 300,
@@ -204,15 +208,55 @@ def model_status():
     }
 
 
-def predict_leaf_disease(image):
+def predict_leaf_disease(image, verified_crop=None):
     start = time.perf_counter()
 
     try:
-        # STEP 1: Identify the crop using Gemini Vision.
-        crop_result = identify_crop(image)
+        # STEP 1: Use explicit user-confirmed crop OR Gemini Vision.
+        # Never silently classify arbitrary images when Gemini is unavailable.
+        manual_crop = str(verified_crop or "").strip()
+        if manual_crop:
+            if manual_crop not in SUPPORTED_CROPS:
+                return {
+                    "status": "crop_identified",
+                    "crop": manual_crop,
+                    "crop_confidence": 0.0,
+                    "crop_source": "User provided",
+                    "message": "Disease classification is unavailable for this crop.",
+                    "inference_engine": "Manual crop selection",
+                    "latency_ms": (time.perf_counter() - start) * 1000,
+                }
+            crop_result = {
+                "crop": manual_crop, "confidence": 1.0, "is_plant": True,
+            }
+        else:
+            try:
+                crop_result = identify_crop(image)
+            except Exception as exc:
+                _LOGGER.exception("Gemini crop identification failed")
+                message = str(exc).upper()
+                if "429" in message or "RESOURCE_EXHAUSTED" in message:
+                    explanation = "Gemini API quota/rate limit reached."
+                elif "404" in message or "NOT_FOUND" in message:
+                    explanation = "Configured Gemini model is unavailable."
+                elif "503" in message or "UNAVAILABLE" in message:
+                    explanation = "Gemini is temporarily unavailable."
+                else:
+                    explanation = "Gemini crop identification is unavailable."
+                return {
+                    "status": "uncertain",
+                    "crop": "Unknown",
+                    "crop_confidence": 0.0,
+                    "crop_source": "Gemini Vision unavailable",
+                    "message": explanation +
+                        " Select a known crop manually to run the local 15-class model, "
+                        "or try automatic identification later. "
+                        "No disease prediction was made.",
+                }
 
         identified_crop = crop_result["crop"]
         crop_confidence = crop_result["confidence"]
+        crop_source = "User provided" if manual_crop else "Gemini Vision"
 
         if not crop_result["is_plant"]:
             return {
@@ -235,6 +279,7 @@ def predict_leaf_disease(image):
                 "status": "crop_identified",
                 "crop": identified_crop,
                 "crop_confidence": crop_confidence,
+                "crop_source": crop_source,
                 "message": (
                     f"Identified crop: {identified_crop}. "
                     "Disease detection for this crop is not "
@@ -277,15 +322,14 @@ def predict_leaf_disease(image):
             input_details = interpreter.get_input_details()
             output_details = interpreter.get_output_details()
 
-            interpreter.set_tensor(
-                input_details[0]["index"], batch
-            )
-
-            interpreter.invoke()
-
-            output = interpreter.get_tensor(
-                output_details[0]["index"]
-            )
+            with _INFERENCE_LOCK:
+                interpreter.set_tensor(
+                    input_details[0]["index"], batch
+                )
+                interpreter.invoke()
+                output = interpreter.get_tensor(
+                    output_details[0]["index"]
+                )
 
         except Exception as tflite_error:
             print("TFLite unavailable, using Keras:", tflite_error)
@@ -328,6 +372,7 @@ def predict_leaf_disease(image):
                 "status": "crop_mismatch",
                 "crop": identified_crop,
                 "crop_confidence": crop_confidence,
+                "crop_source": crop_source,
                 "message": (
                     "Crop identification and disease classifier "
                     "disagree. No disease prediction is being shown."
@@ -347,6 +392,7 @@ def predict_leaf_disease(image):
             "display_label": top[0]["display_label"],
             "crop": identified_crop,
             "crop_confidence": crop_confidence,
+            "crop_source": crop_source,
             "confidence": confidence,
             "top_predictions": top,
             "low_confidence": confidence < 0.70,
@@ -364,11 +410,11 @@ def predict_leaf_disease(image):
         }
 
     except Exception as exc:
-        print("Plant Doctor error:", repr(exc))
+        _LOGGER.exception("Plant Doctor error")
 
         return {
             "error": (
                 f"Plant identification failed: {type(exc).__name__}. "
-                "Please try again. Check the terminal for details."
+                "Please retry or check the Render Logs for details."
             )
         }
