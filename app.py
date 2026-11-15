@@ -1267,7 +1267,7 @@ if page == "Dashboard":
     records = get_records()
 
     model_value = "Ready" if status["ready"] else "Offline"
-    api_value = "Connected" if api_ready else "Offline"
+    api_value = "Configured" if api_ready else "Offline"
 
     model_color = "#42e6a0" if status["ready"] else "#ff647c"
     api_color = "#42e6a0" if api_ready else "#ff647c"
@@ -1598,6 +1598,15 @@ elif page == "Plant Doctor":
             )
             st.caption("Image uploaded successfully. Ready for AI analysis.")
 
+        selected_crop = st.selectbox(
+            "Crop identification method",
+            ["Automatic (Gemini Vision)", "Tomato", "Potato", "Pepper", "Other crop"],
+            help=("Choose a crop manually ONLY when you know what plant is in the photo. "
+                  "Automatic identification requires Gemini API access and quota."),
+        )
+        if selected_crop != "Automatic (Gemini Vision)":
+            st.caption("Manual crop selection is user-provided, not an AI identification.")
+
         status = model_status()
 
         if not status["ready"]:
@@ -1613,7 +1622,13 @@ elif page == "Plant Doctor":
                 with st.spinner("Identifying crop and analyzing plant health..."):
 
                     try:
-                        result = predict_leaf_disease(image)
+                        result = predict_leaf_disease(
+                            image,
+                            verified_crop=(
+                                None if selected_crop == "Automatic (Gemini Vision)"
+                                else selected_crop
+                            ),
+                        )
                         
 
                     except Exception as error:
@@ -1632,10 +1647,11 @@ elif page == "Plant Doctor":
                 st.session_state.last_plant_result = {
                     "result": result,
                     "image_name": uploaded.name,
-                    "image_hash": image_hash
+                    "image_hash": image_hash,
+                    "crop_selection": selected_crop,
                 }
 
-                if not result.get("error"):
+                if result.get("status") == "success":
 
                     st.session_state.latest_assessment = {
                         "type": "plant_image",
@@ -1645,7 +1661,8 @@ elif page == "Plant Doctor":
 
             saved = st.session_state.last_plant_result
 
-            if saved and saved.get("image_hash") == image_hash:
+            if (saved and saved.get("image_hash") == image_hash
+                    and saved.get("crop_selection") == selected_crop):
 
                 result = saved["result"]
 
@@ -1658,12 +1675,13 @@ elif page == "Plant Doctor":
                     st.divider()
                     st.header("🌿 Plant Identification Report")
                 
-                    st.warning("Crop identification is uncertain.")
-                
-                    st.metric(
-                        "Identification Score",
-                        f"{result.get('crop_confidence', 0):.2%}"
-                    )
+                    st.warning("Crop identification is uncertain or unavailable.")
+
+                    if result.get("crop_confidence", 0) > 0:
+                        st.metric(
+                            "Identification Score",
+                            f"{result.get('crop_confidence', 0):.2%}"
+                        )
                 
                     st.info(
                         result.get(
@@ -1678,13 +1696,16 @@ elif page == "Plant Doctor":
                     st.header("🌿 Plant Identification Report")
                 
                     st.success(
-                        f"Identified Crop: {result.get('crop', 'Unknown')}"
+                        f"{'Selected' if result.get('crop_source') == 'User provided' else 'Identified'} Crop: {result.get('crop', 'Unknown')}"
                     )
                 
-                    st.metric(
-                        "Crop Identification Score",
-                        f"{result.get('crop_confidence', 0):.2%}"
-                    )
+                    if result.get("crop_source") == "User provided":
+                        st.caption("Crop selected manually by the user; no AI crop-identification score.")
+                    else:
+                        st.metric(
+                            "Crop Identification Score",
+                            f"{result.get('crop_confidence', 0):.2%}"
+                        )
                 
                     st.warning(result.get("message", ""))
                 
@@ -1693,10 +1714,11 @@ elif page == "Plant Doctor":
                         "available. No disease prediction has been generated."
                     )
                 
-                    st.caption(
-                        "Crop identification was performed using Gemini Vision. "
-                        "Please verify the result visually."
-                    )
+                    if result.get("crop_source") != "User provided":
+                        st.caption(
+                            "Crop identification was performed using Gemini Vision. "
+                            "Please verify the result visually."
+                        )
                 
                 elif result.get("status") == "crop_mismatch":
                 
@@ -1728,6 +1750,9 @@ elif page == "Plant Doctor":
 
                     st.divider()
                     st.header("🌿 Plant Health Report")
+
+                    if result.get("crop_source") == "User provided":
+                        st.caption("Crop specified by user; disease classifier did not verify crop identity.")
 
                     # DIAGNOSIS SUMMARY
 
